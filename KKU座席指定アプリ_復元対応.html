@@ -1,0 +1,2700 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>座席指定システム</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: #d8d5cc;
+    --border2: #e8e5dc;
+    --text: #1a1916;
+    --text2: #6b6860;
+    --text3: #9b9890;
+    --accent: #2d5016;
+    --accent-light: #4a7c2e;
+    --accent-bg: #eef4e8;
+    --warn: #8a5500;
+    --warn-bg: #fff8e6;
+    --error: #8b1a1a;
+    --error-bg: #fdf0f0;
+    --seat-available: #d4eac8;
+    --seat-available-border: #6fa855;
+    --seat-occupied: #2d5016;
+    --seat-disabled: #e0ddd6;
+    --seat-disabled-border: #c8c5bc;
+    --seat-selected-border: #d4870a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+  .app-header { background: var(--accent); color: white; padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .app-header h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.03em; }
+  .app-header .subtitle { font-size: 11px; opacity: 0.75; font-weight: 300; margin-left: auto; font-family: 'DM Mono', monospace; }
+
+  .app-body { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 50px); }
+
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+
+  .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 10px; }
+
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+  select, input[type="text"] { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px; background: var(--surface); color: var(--text); outline: none; transition: border-color 0.15s; }
+  select:focus, input:focus { border-color: var(--accent-light); box-shadow: 0 0 0 2px var(--accent-bg); }
+  .form-group { margin-bottom: 12px; }
+
+  .radio-group { display: flex; flex-direction: column; gap: 5px; }
+  .radio-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border2); border-radius: 6px; cursor: pointer; transition: all 0.12s; }
+  .radio-item:hover:not(.disabled-opt) { border-color: var(--accent-light); background: var(--accent-bg); }
+  .radio-item.active { border-color: var(--accent-light); background: var(--accent-bg); }
+  .radio-item.disabled-opt { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+  .radio-item input { display: none; }
+  .radio-dot { width: 14px; height: 14px; border: 2px solid var(--border); border-radius: 50%; flex-shrink: 0; transition: all 0.12s; }
+  .radio-item.active .radio-dot { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px white; }
+  .radio-label { font-size: 13px; font-weight: 500; }
+  .radio-sub { font-size: 11px; color: var(--text3); }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; border-radius: 7px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-light); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover:not(:disabled) { background: var(--border2); }
+  .btn-success { background: #1a6b3c; color: white; }
+  .btn-success:hover:not(:disabled) { background: #2a8a50; }
+  .btn-full { width: 100%; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-xs { padding: 4px 8px; font-size: 11px; }
+
+  .status-bar { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 12px 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .status-item { text-align: center; }
+  .status-value { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; line-height: 1; margin-bottom: 3px; }
+  .status-label { font-size: 11px; color: var(--text3); }
+  .status-item.highlight .status-value { color: var(--accent); }
+  .status-item.warn .status-value { color: var(--warn); }
+  .status-item.error .status-value { color: var(--error); }
+
+  .alert { padding: 10px 12px; border-radius: 7px; font-size: 12px; line-height: 1.6; border: 1px solid; }
+  .alert-error { background: var(--error-bg); border-color: #f0b0b0; color: var(--error); }
+  .alert-warn { background: var(--warn-bg); border-color: #f0d090; color: var(--warn); }
+  .alert-info { background: var(--accent-bg); border-color: #b0d490; color: var(--accent); }
+  .alert strong { display: block; margin-bottom: 3px; font-size: 13px; }
+
+  .file-upload { border: 2px dashed var(--border); border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; transition: all 0.15s; }
+  .file-upload:hover { border-color: var(--accent-light); background: var(--accent-bg); }
+  .file-upload.drag-over { border-color: var(--accent); background: var(--accent-bg); transform: scale(1.01); box-shadow: 0 0 0 3px var(--accent-bg); }
+  .file-upload input { display: none; }
+  .file-upload-icon { font-size: 22px; margin-bottom: 4px; }
+  .file-upload-text { font-size: 12px; color: var(--text2); }
+  .file-loaded { border-color: var(--seat-available-border); background: var(--accent-bg); }
+
+  .main-content { padding: 20px; overflow-y: auto; }
+
+  .classroom-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+  .classroom-title { font-size: 16px; font-weight: 700; }
+  .classroom-subtitle { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+  .classroom-container { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+
+  .podium-area { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; text-align: center; padding: 8px; font-size: 12px; color: var(--text2); margin-bottom: 12px; font-weight: 600; }
+
+  .section-divider { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+  .section-divider-line { flex: 1; height: 1px; background: var(--border); }
+  .section-divider-text { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+
+  .seat-grid { display: flex; flex-direction: column; gap: 4px; overflow-x: auto; }
+  .seat-row { display: flex; gap: 4px; align-items: center; }
+  .row-label { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; width: 24px; text-align: right; flex-shrink: 0; }
+
+  /* Column header label — clickable */
+  .col-header-cell {
+    width: 48px; text-align: center; font-size: 10px; font-family: 'DM Mono', monospace;
+    flex-shrink: 0; cursor: pointer; border-radius: 4px; padding: 2px 0;
+    transition: all 0.12s; user-select: none;
+  }
+  .col-header-cell:hover { background: var(--surface2); color: var(--accent); font-weight: 700; }
+  .col-header-cell.col-disabled { color: var(--error); text-decoration: line-through; }
+
+  /* Row label — clickable */
+  .row-label-btn {
+    font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace;
+    width: 24px; text-align: right; flex-shrink: 0; cursor: pointer;
+    border-radius: 3px; padding: 1px 3px; transition: all 0.12s; user-select: none;
+  }
+  .row-label-btn:hover { background: var(--surface2); color: var(--accent); font-weight: 700; }
+  .row-label-btn.row-disabled { color: var(--error); text-decoration: line-through; }
+
+  .seat { width: 48px; height: 44px; border: 1.5px solid; border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; font-family: 'DM Mono', monospace; cursor: pointer; transition: all 0.12s; position: relative; text-align: center; overflow: hidden; flex-shrink: 0; }
+  .seat-id { font-size: 8px; opacity: 0.7; line-height: 1; }
+  .seat-name { font-size: 9px; font-weight: 600; line-height: 1.2; max-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .seat.available { background: var(--seat-available); border-color: var(--seat-available-border); color: #2d5016; }
+  .seat.available:hover { transform: scale(1.05); border-color: var(--accent); }
+  .seat.occupied { background: var(--seat-occupied); border-color: #1a3a08; color: white; }
+  .seat.occupied:hover { transform: scale(1.05); background: #3a6820; }
+  .seat.disabled { background: var(--seat-disabled); border-color: var(--seat-disabled-border); color: var(--text3); }
+  .seat.disabled:hover { opacity: 0.8; }
+  .seat.selected-swap { background: #fff3cd; border-color: var(--seat-selected-border); border-width: 2.5px; color: #7a4500; animation: pulse-select 1s ease-in-out infinite; }
+  @keyframes pulse-select { 0%,100%{box-shadow:0 0 0 0 rgba(245,166,35,.5)} 50%{box-shadow:0 0 0 4px rgba(245,166,35,.2)} }
+  .seat .disabled-x { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 16px; opacity: 0.3; }
+
+  .seat-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border2); }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid; flex-shrink: 0; }
+
+  .mode-bar { background: #fff8e6; border: 1px solid #f0d090; border-radius: 7px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-size: 13px; color: var(--warn); font-weight: 500; }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+  .tab { padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text3); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.12s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .student-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--border2); border-radius: 7px; }
+  .student-item { display: flex; align-items: center; padding: 7px 10px; border-bottom: 1px solid var(--border2); font-size: 12px; gap: 8px; }
+  .student-item:last-child { border-bottom: none; }
+  .student-item:hover { background: var(--surface2); }
+  .student-id { font-family: 'DM Mono', monospace; color: var(--text3); font-size: 11px; min-width: 68px; }
+  .student-name { flex: 1; font-weight: 500; }
+  .student-score { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); min-width: 36px; text-align: right; }
+  .student-seat { font-size: 11px; color: var(--accent); font-weight: 600; min-width: 40px; text-align: right; font-family: 'DM Mono', monospace; }
+
+  .steps-flow { display: flex; flex-direction: column; gap: 3px; margin-bottom: 16px; }
+  .step-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; font-size: 12px; }
+  .step-item.done { color: var(--accent); }
+  .step-item.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+  .step-item.pending { color: var(--text3); }
+  .step-num { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+  .step-item.done .step-num { background: var(--accent); color: white; }
+  .step-item.active .step-num { background: var(--accent-light); color: white; }
+  .step-item.pending .step-num { background: var(--border2); color: var(--text3); }
+
+  hr.divider { border: none; border-top: 1px solid var(--border2); margin: 2px 0; }
+  .hidden { display: none !important; }
+  .mb-2 { margin-bottom: 8px; }
+  .mt-2 { margin-top: 8px; }
+  .hint { font-size: 11px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
+
+  /* Column/Row bulk selector panel */
+  .bulk-selector { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 12px; }
+  .bulk-selector-title { font-size: 11px; font-weight: 700; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip {
+    padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    cursor: pointer; border: 1.5px solid; transition: all 0.12s; user-select: none;
+    font-family: 'DM Mono', monospace;
+  }
+  .chip.on { background: var(--seat-available); border-color: var(--seat-available-border); color: #2d5016; }
+  .chip.off { background: var(--seat-disabled); border-color: var(--seat-disabled-border); color: var(--text3); text-decoration: line-through; }
+
+  /* Preview seat map styles */
+  .preview-section-label {
+    font-size: 12px; font-weight: 700; color: var(--text2);
+    margin: 14px 0 8px; padding: 5px 10px;
+    background: var(--surface2); border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+  }
+  .preview-podium {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; text-align: center; padding: 8px;
+    font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 12px;
+  }
+  .preview-grid-wrap { overflow-x: auto; margin-bottom: 4px; }
+  .preview-grid {
+    display: inline-flex; flex-direction: column; gap: 3px; min-width: 100%;
+  }
+  .preview-row { display: flex; gap: 3px; align-items: stretch; }
+  .preview-row-lbl {
+    width: 22px; flex-shrink: 0; font-size: 10px; color: var(--text3);
+    font-family: 'DM Mono', monospace; display: flex; align-items: center;
+    justify-content: flex-end; padding-right: 3px;
+  }
+  .preview-col-hdr {
+    width: 76px; flex-shrink: 0; text-align: center;
+    font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace;
+    padding-bottom: 2px;
+  }
+  .preview-gap { width: 12px; flex-shrink: 0; }
+
+  /* Preview seat boxes — no seat number shown */
+  .pv-seat {
+    width: 76px; flex-shrink: 0;
+    border: 1.5px solid; border-radius: 5px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 4px 2px; text-align: center; overflow: hidden;
+    background: var(--seat-available); border-color: var(--seat-available-border);
+  }
+  .pv-seat.empty { background: var(--surface2); border-color: var(--border2); }
+  .pv-seat.disabled-pv { background: var(--seat-disabled); border-color: var(--seat-disabled-border); }
+
+  /* Ver.1: student id large — fills the box */
+  .pv-sid-lg {
+    font-family: 'DM Mono', monospace; font-weight: 700;
+    font-size: 13px; line-height: 1.15; color: #1a3a08;
+    word-break: break-all; max-width: 72px;
+  }
+  /* Ver.2: student id medium */
+  .pv-sid-md {
+    font-family: 'DM Mono', monospace; font-weight: 700;
+    font-size: 10px; line-height: 1.1; color: #1a3a08;
+    word-break: break-all; max-width: 72px;
+  }
+  .pv-furigana {
+    font-size: 8px; color: #1a1916; line-height: 1.1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 72px;
+  }
+  .pv-name {
+    font-size: 9px; font-weight: 600; color: var(--text);
+    line-height: 1.2; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; max-width: 72px;
+  }
+  .pv-seat.disabled-pv::after { content: '×'; font-size: 18px; color: var(--text3); opacity: 0.25; }
+
+  /* PDF print styles */
+  @media print {
+    html, body {
+      margin: 0; padding: 0; height: auto; overflow: visible;
+    }
+    body * { visibility: hidden; }
+    #printArea, #printArea * { visibility: visible; }
+    #printArea {
+      position: absolute; top: 0; left: 0; width: 100%;
+      background: white; padding: 12px;
+    }
+    .app-header, .sidebar, .tabs, #modeBar { display: none !important; }
+    .pv-seat { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .preview-gap { border-left: 1px dashed #ccc !important; }
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <span style="font-size:20px">🎓</span>
+  <div>
+    <h1>九州共立大学 座席指定アプリ</h1>
+    <div style="font-size:10px;opacity:0.65;font-weight:400;margin-top:1px">by Y. Shimajiri</div>
+  </div>
+  <span class="subtitle">更新日：2025年9月</span>
+</header>
+
+<div class="app-body">
+  <aside class="sidebar">
+
+    <div>
+      <div class="section-title">操作フロー</div>
+      <div class="steps-flow" id="stepsFlow">
+        <div class="step-item active" data-step="1"><div class="step-num">1</div>教室を選択</div>
+        <div class="step-item pending" data-step="2"><div class="step-num">2</div>座席を調整</div>
+        <div class="step-item pending" data-step="3"><div class="step-num">3</div>学生データ読み込み</div>
+        <div class="step-item pending" data-step="4"><div class="step-num">4</div>配置設定</div>
+        <div class="step-item pending" data-step="5"><div class="step-num">5</div>自動配置</div>
+        <div class="step-item pending" data-step="6"><div class="step-num">6</div>手動修正 / 出力</div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-title">① 教室選択</div>
+      <div class="form-group">
+        <label>教室</label>
+        <select id="classroomSelect" onchange="selectClassroom()">
+          <option value="">-- 教室を選択 --</option>
+        </select>
+      </div>
+      <div id="classroomInfo" class="hint hidden"></div>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-title">③ 学生データ</div>
+
+      <!-- Download instructions -->
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 13px;margin-bottom:10px;font-size:11px;line-height:1.7;color:var(--text2)">
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;font-size:12px">📥 ファイルの入手方法</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div style="display:flex;gap:7px;align-items:flex-start">
+            <span style="background:var(--accent);color:white;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">1</span>
+            <span><b>出欠管理</b>を開く</span>
+          </div>
+          <div style="display:flex;gap:7px;align-items:flex-start">
+            <span style="background:var(--accent);color:white;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">2</span>
+            <span>授業科目を選択</span>
+          </div>
+          <div style="display:flex;gap:7px;align-items:flex-start">
+            <span style="background:var(--accent);color:white;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">3</span>
+            <span>ページ最下部の<b>出欠情報（学生毎）</b>セクションへ</span>
+          </div>
+          <div style="display:flex;gap:7px;align-items:flex-start">
+            <span style="background:var(--accent);color:white;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">4</span>
+            <span><b>Excel &amp; ヘッダーを含む</b>にチェック → ダウンロード</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>ダウンロードしたファイルを読み込み</label>
+        <div class="file-upload" id="csvDropZone"
+             onclick="document.getElementById('csvFile').click()"
+             ondragover="handleDragOver(event)"
+             ondragleave="handleDragLeave(event)"
+             ondrop="handleDrop(event)">
+          <input type="file" id="csvFile" accept=".csv,.xlsx,.xls" onchange="loadStudentFile(this)">
+          <div class="file-upload-icon" id="csvIcon">📄</div>
+          <div class="file-upload-text" id="csvText">クリック または ファイルをここにドロップ<br><span style="font-size:10px;color:var(--text3)">CSV または Excel（.xlsx）</span></div>
+        </div>
+        <div class="hint mt-2" style="color:var(--text3)">※ 学生データはファイル読み込み時のみ使用されます。このHTMLファイルには保存されません。</div>
+      </div>
+      <div id="loadAlert" class="hidden mb-2"></div>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-title">④ 配置設定</div>
+      <div class="form-group">
+        <label>並び順</label>
+        <div class="radio-group" id="orderGroup">
+          <div class="radio-item active" onclick="setOrder('random')">
+            <input type="radio" name="order" value="random" checked>
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">ランダム</div></div>
+          </div>
+          <div class="radio-item" onclick="setOrder('id')">
+            <input type="radio" name="order" value="id">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">学籍番号順</div><div class="radio-sub">昇順</div></div>
+          </div>
+          <div class="radio-item" id="orderScoreItem" onclick="setOrder('score')">
+            <input type="radio" name="order" value="score">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">成績順</div><div class="radio-sub" id="orderScoreSub">降順（高→低）</div></div>
+          </div>
+          <div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 0 2px;letter-spacing:0.05em;">— 座席順で割り当て —</div>
+          <div class="radio-item" onclick="setOrder('seat_col_asc')">
+            <input type="radio" name="order" value="seat_col_asc">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">左前 → 右後ろ</div><div class="radio-sub">A列前から後、B列前から後…</div></div>
+          </div>
+          <div class="radio-item" onclick="setOrder('seat_col_desc')">
+            <input type="radio" name="order" value="seat_col_desc">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">右前 → 左後ろ</div><div class="radio-sub">最右列前から後、左へ…</div></div>
+          </div>
+          <div class="radio-item" onclick="setOrder('seat_row_asc')">
+            <input type="radio" name="order" value="seat_row_asc">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">左 → 右、前 → 後ろ</div><div class="radio-sub">1行目左から右、次の行へ…</div></div>
+          </div>
+          <div class="radio-item" onclick="setOrder('seat_row_desc')">
+            <input type="radio" name="order" value="seat_row_desc">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">右 → 左、前 → 後ろ</div><div class="radio-sub">1行目右から左、次の行へ…</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group mt-2">
+        <label>空席の配置方法</label>
+        <div class="radio-group" id="emptyGroup">
+          <div class="radio-item active" onclick="setEmpty('front')">
+            <input type="radio" name="empty" value="front" checked>
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">前に詰める</div><div class="radio-sub">後ろを空席に</div></div>
+          </div>
+          <div class="radio-item" onclick="setEmpty('back')">
+            <input type="radio" name="empty" value="back">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">後ろに詰める</div><div class="radio-sub">前を空席に</div></div>
+          </div>
+          <div class="radio-item" onclick="setEmpty('spread')">
+            <input type="radio" name="empty" value="spread">
+            <div class="radio-dot"></div>
+            <div><div class="radio-label">分散して空ける</div><div class="radio-sub">均等に配置</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-title">⑤ 座席確認・自動配置</div>
+      <div class="status-bar mb-2">
+        <div class="status-item" id="statusSeats"><div class="status-value">—</div><div class="status-label">有効座席数</div></div>
+        <div class="status-item" id="statusStudents"><div class="status-value">—</div><div class="status-label">学生数</div></div>
+        <div class="status-item" id="statusDiff"><div class="status-value">—</div><div class="status-label">空席 / 不足</div></div>
+      </div>
+      <div id="capacityAlert" class="hidden mb-2"></div>
+      <button class="btn btn-primary btn-full" id="btnAssign" onclick="runAssignment()" disabled>🎲 自動配置を実行</button>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-title">⑥ 出力・復元</div>
+      <div class="form-group">
+        <label for="courseName">授業名（Excelファイル名）</label>
+        <input type="text" id="courseName" placeholder="例：基礎物理学" maxlength="80">
+      </div>
+      <button class="btn btn-primary btn-full mb-2" id="btnPreview" onclick="openPreview()" disabled>👁 出力プレビューを確認</button>
+      <button class="btn btn-success btn-full mb-2" id="btnExport" onclick="exportExcel()" disabled>📊 Excel (.xlsx) で出力</button>
+      <button class="btn btn-secondary btn-full" id="btnReset" onclick="resetAssignment()" disabled>🔄 配置をリセット</button>
+      <div class="form-group" style="margin-top:14px">
+        <label for="restoreFile">出力済みの座席指定Excelを読み込む</label>
+        <input type="file" id="restoreFile" accept=".xlsx" onchange="importAssignment(this)" style="padding:6px">
+        <div class="hint">このアプリから出力した復元データ付きExcelを選択してください。</div>
+      </div>
+      <div id="restoreAlert" class="hidden"></div>
+    </div>
+
+  </aside>
+
+  <main class="main-content">
+
+    <div id="modeBar" class="mode-bar hidden">
+      <span style="font-size:16px">🖱️</span>
+      <span id="modeBarText">—</span>
+      <button class="btn btn-sm btn-secondary" onclick="cancelMode()" style="margin-left:auto">キャンセル</button>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('seats')">座席表</div>
+      <div class="tab" onclick="switchTab('students')">学生一覧</div>
+      <div class="tab" onclick="switchTab('preview')" id="tabPreviewBtn">📋 出力プレビュー</div>
+    </div>
+
+    <div id="tabSeats">
+      <div class="classroom-header">
+        <div>
+          <div class="classroom-title" id="classroomTitle">教室を選択してください</div>
+          <div class="classroom-subtitle" id="classroomSubtitle">左のパネルから教室を選択すると座席表が表示されます</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn btn-sm btn-secondary" id="btnBackSection" onclick="toggleBackSection()" style="display:none">🔲 後方エリアをON</button>
+          <button class="btn btn-sm btn-secondary" onclick="toggleSeatMode()" id="btnSeatToggle" disabled>✎ 座席クリックで切替</button>
+          <button class="btn btn-sm btn-secondary" onclick="toggleSwapMode()" id="btnSwap" disabled>⇄ 2席をクリックして入れ替え</button>
+        </div>
+      </div>
+
+      <!-- Bulk column/row selector (shown after classroom selected) -->
+      <div id="bulkPanel" class="hidden" style="margin-bottom:14px">
+        <div class="bulk-selector">
+          <div class="bulk-selector-title">② 列・行をまとめて使用不可にする</div>
+          <div style="margin-bottom:8px">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600">列（クリックで切替）</div>
+            <div class="chip-row" id="colChips"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600">行（クリックで切替）</div>
+            <div class="chip-row" id="rowChips"></div>
+          </div>
+          <div class="hint mt-2" style="margin-top:6px">チップをクリックすると列・行まとめて切替。座席をクリックで個別に切替もできます。</div>
+        </div>
+      </div>
+
+      <div class="classroom-container" id="classroomContainer">
+        <div style="text-align:center;padding:60px 0;color:var(--text3)">
+          <div style="font-size:48px;margin-bottom:12px">🏫</div>
+          <div>左のパネルから教室を選択してください</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tabStudents" class="hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="section-title">学生一覧</div>
+        <span style="font-size:12px;color:var(--text3)" id="studentCount">0名</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">列: 学籍番号 / 氏名 / 成績 / 座席</div>
+      <div class="student-list" id="studentList">
+        <div style="padding:20px;text-align:center;color:var(--text3)">学生データを読み込んでください</div>
+      </div>
+    </div>
+
+    <!-- Preview Tab -->
+    <div id="tabPreview" class="hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:16px;font-weight:700">出力プレビュー</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">配置結果を確認してから出力してください</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="btnPrintPreview" onclick="printPreview()" disabled>🖨️ PDF 出力</button>
+          <button class="btn btn-success" id="btnExportFromPreview" onclick="exportExcel()" disabled>📊 Excel 出力</button>
+        </div>
+      </div>
+
+      <!-- Version toggle -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:600;color:var(--text2)">表示バージョン：</span>
+        <button class="btn btn-sm" id="pvBtn1" onclick="setPreviewVersion(1)" style="background:var(--accent);color:white">
+          Ver.1　学籍番号のみ
+        </button>
+        <button class="btn btn-sm btn-secondary" id="pvBtn2" onclick="setPreviewVersion(2)">
+          Ver.2　学籍番号 + ふりがな + 氏名
+        </button>
+      </div>
+
+      <div id="previewNotice" class="alert alert-info hidden" style="margin-bottom:14px">
+        自動配置を実行すると、ここでプレビューを確認できます。
+      </div>
+      <div id="printArea">
+        <div id="previewContainer"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// =========================================================
+// CLASSROOM DATA
+// =========================================================
+// colGapsAfter: indices (0-based) of cols after which a visual aisle gap is shown
+// seatsPerRow: map of colLetter -> number of seats (for tables with >1 seat per column slot)
+//   If absent, each col has 1 seat per row.
+// seatLabels: optional override function(col, row) -> seatId string
+//   If absent, labels are generated as col+padded(row)
+// For S141/S142: each column slot represents multiple seats (vertical numbering)
+const CLASSROOMS = {
+  S101: {
+    name: 'S101（大講義室１）',
+    description: '前4列移動式 / 5列目以降固定 / 合計320名（173名通常使用）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        // Row 1: C-X (22 cols), Row 2+: A-Z (26 cols), Row 12: B-Y partial, Row 13: G-T partial
+        // Represent as A-Z, mark missing cells via partialRows
+        cols: ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'],
+        rows: 13,
+        colGapsAfter: [3,7,12,17,21], // after D,H,M,R,V
+        defaultEnabled: true,
+        // Cells that don't exist in the real layout
+        absentCells: new Set([
+          'A01','B01','Y01','Z01', // row1 missing A,B,Y,Z
+          'A12',                   // row12 missing A
+          'Z12','Y12',             // row12 missing Z,Y (actually Y12 exists, Z12 doesn't based on data)
+          // row 13 only G-T exist
+          'A13','B13','C13','D13','E13','F13',
+          'U13','V13','W13','X13','Y13','Z13'
+        ])
+      }
+    ]
+  },
+  S201: {
+    name: 'S201（講義室2-1）',
+    description: '移動机 / 88名（通常使用55名）',
+    sections: [
+      { id: 'main', name: '全体', cols: ['A','B','C','D','E','F','G','H'], rows: 11, colGapsAfter: [2,4], defaultEnabled: true }
+    ]
+  },
+  S202: {
+    name: 'S202（講義室2-2）',
+    description: '移動机 / 119名（通常使用68名）',
+    sections: [
+      { id: 'main', name: '全体', cols: ['A','B','C','D','E','F','G'], rows: 17, colGapsAfter: [1,4], defaultEnabled: true }
+    ]
+  },
+  S203: {
+    name: 'S203（講義室2-3）',
+    description: '移動机 / 124名（通常使用71名）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','D','E','F','G'], rows: 18, colGapsAfter: [1,4], defaultEnabled: true,
+        absentCells: new Set(['F18','G18']) // row18 has only A-E
+      }
+    ]
+  },
+  S204: {
+    name: 'S204（講義室2-4）',
+    description: '固定机 / 132名（通常使用66名）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','D','E','F','G','H','I','J','K','L'], rows: 12, colGapsAfter: [3,7], defaultEnabled: true,
+        absentCells: new Set([
+          'C12','D12','E12','F12','G12','H12','I12','J12','K12','L12' // row12 only A,B
+        ])
+      }
+    ]
+  },
+  S205: {
+    name: 'S205（講義室2-5）',
+    description: '固定机 / 132名（通常使用66名）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','D','E','F','G','H','I','J','K','L'], rows: 12, colGapsAfter: [3,7], defaultEnabled: true,
+        absentCells: new Set([
+          'C12','D12','E12','F12','G12','H12','I12','J12','K12','L12'
+        ])
+      }
+    ]
+  },
+  S206: {
+    name: 'S206（講義室2-6）',
+    description: '移動机 / 72名（通常使用45名）',
+    sections: [
+      { id: 'main', name: '全体', cols: ['A','B','C','D','E','F','G','H'], rows: 9, colGapsAfter: [2,4], defaultEnabled: true }
+    ]
+  },
+  S207: {
+    name: 'S207（講義室2-7）',
+    description: '移動机 / 136名（通常使用85名）',
+    sections: [
+      { id: 'main', name: '全体', cols: ['A','B','C','D','E','F','G','H'], rows: 17, colGapsAfter: [2,4], defaultEnabled: true }
+    ]
+  },
+  S208: {
+    name: 'S208（講義室2-8）',
+    description: '固定机 / 200名（通常使用100名）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','D','E','F','G','H','I','J','K','L'], rows: 17, colGapsAfter: [3,7], defaultEnabled: true,
+        absentCells: new Set([
+          'Q17','R17' // row17: only A-P exist (actually only A-L per data, but last 2 cols unused)
+        ])
+      }
+    ]
+  },
+  S211: {
+    name: 'S211（講義室2-9）',
+    description: '可動式 / 90名（通常使用60名）\n※ 列D・H・Lは通路（欠番）',
+    sections: [
+      // S211 has cols A,B,C then D=aisle, E,F,G then H=aisle, I,J,K
+      // But actual seat letters are A,B,C,E,F,G,I,J,K (D/H/L are aisles)
+      { id: 'main', name: '全体', cols: ['A','B','C','E','F','G','I','J','K'], rows: 10, colGapsAfter: [2,5], defaultEnabled: true }
+    ]
+  },
+  S213: {
+    name: 'S213（講義室2-10）',
+    description: '可動式 / 105名（通常使用58名）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','E','F','G','I','J','K'], rows: 12, colGapsAfter: [2,5], defaultEnabled: true,
+        absentCells: new Set(['I12','J12','K12']) // row12 only A-G
+      }
+    ]
+  },
+  S141: {
+    name: 'S141（大教室）',
+    description: '固定机 / 580名（通常使用348名）',
+    tableLayout: true,
+    sections: [
+      {
+        id: 'upper', name: '上段エリア（A-F列）',
+        // groupSize = seats per table block (vertical height)
+        // 5 tables per col → numGroups = 5
+        // tableId is used as the chip label (A1〜A5, B1〜B5, ...)
+        tables: [
+          { col:'A', tableId:'A1', count:55, groupSize:11 },
+          { col:'A', tableId:'A2', count:55, groupSize:11 },
+          { col:'A', tableId:'A3', count:55, groupSize:11 },
+          { col:'A', tableId:'A4', count:55, groupSize:11 },
+          { col:'A', tableId:'A5', count:55, groupSize:11 },
+          { col:'B', tableId:'B1', count:55, groupSize:11 },
+          { col:'B', tableId:'B2', count:55, groupSize:11 },
+          { col:'B', tableId:'B3', count:55, groupSize:11 },
+          { col:'B', tableId:'B4', count:55, groupSize:11 },
+          { col:'B', tableId:'B5', count:55, groupSize:11 },
+          { col:'C', tableId:'C1', count:60, groupSize:12 },
+          { col:'C', tableId:'C2', count:60, groupSize:12 },
+          { col:'C', tableId:'C3', count:60, groupSize:12 },
+          { col:'C', tableId:'C4', count:60, groupSize:12 },
+          { col:'C', tableId:'C5', count:60, groupSize:12 },
+          { col:'D', tableId:'D1', count:60, groupSize:12 },
+          { col:'D', tableId:'D2', count:60, groupSize:12 },
+          { col:'D', tableId:'D3', count:60, groupSize:12 },
+          { col:'D', tableId:'D4', count:60, groupSize:12 },
+          { col:'D', tableId:'D5', count:60, groupSize:12 },
+          { col:'E', tableId:'E1', count:55, groupSize:11 },
+          { col:'E', tableId:'E2', count:55, groupSize:11 },
+          { col:'E', tableId:'E3', count:55, groupSize:11 },
+          { col:'E', tableId:'E4', count:55, groupSize:11 },
+          { col:'E', tableId:'E5', count:55, groupSize:11 },
+          { col:'F', tableId:'F1', count:55, groupSize:11 },
+          { col:'F', tableId:'F2', count:55, groupSize:11 },
+          { col:'F', tableId:'F3', count:55, groupSize:11 },
+          { col:'F', tableId:'F4', count:55, groupSize:11 },
+          { col:'F', tableId:'F5', count:55, groupSize:11 },
+        ],
+        // Aisle after every 5 tables (after each col group): indices 4,9,14,19,24
+        colGapsAfter: [4, 9, 14, 19, 24],
+        defaultEnabled: true
+      },
+      {
+        id: 'lower', name: '下段エリア（G-N列、I・J除く）',
+        tables: [
+          { col:'G', tableId:'G1', count:40, groupSize:8 },
+          { col:'G', tableId:'G2', count:40, groupSize:8 },
+          { col:'G', tableId:'G3', count:40, groupSize:8 },
+          { col:'G', tableId:'G4', count:40, groupSize:8 },
+          { col:'G', tableId:'G5', count:40, groupSize:8 },
+          { col:'H', tableId:'H1', count:40, groupSize:8 },
+          { col:'H', tableId:'H2', count:40, groupSize:8 },
+          { col:'H', tableId:'H3', count:40, groupSize:8 },
+          { col:'H', tableId:'H4', count:40, groupSize:8 },
+          { col:'H', tableId:'H5', count:40, groupSize:8 },
+          { col:'K', tableId:'K1', count:40, groupSize:8 },
+          { col:'K', tableId:'K2', count:40, groupSize:8 },
+          { col:'K', tableId:'K3', count:40, groupSize:8 },
+          { col:'K', tableId:'K4', count:40, groupSize:8 },
+          { col:'K', tableId:'K5', count:40, groupSize:8 },
+          { col:'L', tableId:'L1', count:40, groupSize:8 },
+          { col:'L', tableId:'L2', count:40, groupSize:8 },
+          { col:'L', tableId:'L3', count:40, groupSize:8 },
+          { col:'L', tableId:'L4', count:40, groupSize:8 },
+          { col:'L', tableId:'L5', count:40, groupSize:8 },
+          { col:'M', tableId:'M1', count:40, groupSize:8 },
+          { col:'M', tableId:'M2', count:40, groupSize:8 },
+          { col:'M', tableId:'M3', count:40, groupSize:8 },
+          { col:'M', tableId:'M4', count:40, groupSize:8 },
+          { col:'M', tableId:'M5', count:40, groupSize:8 },
+          { col:'N', tableId:'N1', count:40, groupSize:8 },
+          { col:'N', tableId:'N2', count:40, groupSize:8 },
+          { col:'N', tableId:'N3', count:40, groupSize:8 },
+          { col:'N', tableId:'N4', count:40, groupSize:8 },
+          { col:'N', tableId:'N5', count:40, groupSize:8 },
+        ],
+        colGapsAfter: [4, 9, 14, 19, 24],
+        defaultEnabled: true
+      }
+    ]
+  },
+  S142: {
+    name: 'S142（大教室）',
+    description: '固定机 / 580名（通常使用348名）',
+    tableLayout: true,
+    sections: [
+      {
+        id: 'upper', name: '上段エリア（A-F列）',
+        tables: [
+          { col:'A', tableId:'A1', count:55, groupSize:11 },
+          { col:'A', tableId:'A2', count:55, groupSize:11 },
+          { col:'A', tableId:'A3', count:55, groupSize:11 },
+          { col:'A', tableId:'A4', count:55, groupSize:11 },
+          { col:'A', tableId:'A5', count:55, groupSize:11 },
+          { col:'B', tableId:'B1', count:55, groupSize:11 },
+          { col:'B', tableId:'B2', count:55, groupSize:11 },
+          { col:'B', tableId:'B3', count:55, groupSize:11 },
+          { col:'B', tableId:'B4', count:55, groupSize:11 },
+          { col:'B', tableId:'B5', count:55, groupSize:11 },
+          { col:'C', tableId:'C1', count:60, groupSize:12 },
+          { col:'C', tableId:'C2', count:60, groupSize:12 },
+          { col:'C', tableId:'C3', count:60, groupSize:12 },
+          { col:'C', tableId:'C4', count:60, groupSize:12 },
+          { col:'C', tableId:'C5', count:60, groupSize:12 },
+          { col:'D', tableId:'D1', count:60, groupSize:12 },
+          { col:'D', tableId:'D2', count:60, groupSize:12 },
+          { col:'D', tableId:'D3', count:60, groupSize:12 },
+          { col:'D', tableId:'D4', count:60, groupSize:12 },
+          { col:'D', tableId:'D5', count:60, groupSize:12 },
+          { col:'E', tableId:'E1', count:55, groupSize:11 },
+          { col:'E', tableId:'E2', count:55, groupSize:11 },
+          { col:'E', tableId:'E3', count:55, groupSize:11 },
+          { col:'E', tableId:'E4', count:55, groupSize:11 },
+          { col:'E', tableId:'E5', count:55, groupSize:11 },
+          { col:'F', tableId:'F1', count:55, groupSize:11 },
+          { col:'F', tableId:'F2', count:55, groupSize:11 },
+          { col:'F', tableId:'F3', count:55, groupSize:11 },
+          { col:'F', tableId:'F4', count:55, groupSize:11 },
+          { col:'F', tableId:'F5', count:55, groupSize:11 },
+        ],
+        colGapsAfter: [4, 9, 14, 19, 24],
+        defaultEnabled: true
+      },
+      {
+        id: 'lower', name: '下段エリア（G-N列、I・J除く）',
+        tables: [
+          { col:'G', tableId:'G1', count:40, groupSize:8 },
+          { col:'G', tableId:'G2', count:40, groupSize:8 },
+          { col:'G', tableId:'G3', count:40, groupSize:8 },
+          { col:'G', tableId:'G4', count:40, groupSize:8 },
+          { col:'G', tableId:'G5', count:40, groupSize:8 },
+          { col:'H', tableId:'H1', count:40, groupSize:8 },
+          { col:'H', tableId:'H2', count:40, groupSize:8 },
+          { col:'H', tableId:'H3', count:40, groupSize:8 },
+          { col:'H', tableId:'H4', count:40, groupSize:8 },
+          { col:'H', tableId:'H5', count:40, groupSize:8 },
+          { col:'K', tableId:'K1', count:40, groupSize:8 },
+          { col:'K', tableId:'K2', count:40, groupSize:8 },
+          { col:'K', tableId:'K3', count:40, groupSize:8 },
+          { col:'K', tableId:'K4', count:40, groupSize:8 },
+          { col:'K', tableId:'K5', count:40, groupSize:8 },
+          { col:'L', tableId:'L1', count:40, groupSize:8 },
+          { col:'L', tableId:'L2', count:40, groupSize:8 },
+          { col:'L', tableId:'L3', count:40, groupSize:8 },
+          { col:'L', tableId:'L4', count:40, groupSize:8 },
+          { col:'L', tableId:'L5', count:40, groupSize:8 },
+          { col:'M', tableId:'M1', count:40, groupSize:8 },
+          { col:'M', tableId:'M2', count:40, groupSize:8 },
+          { col:'M', tableId:'M3', count:40, groupSize:8 },
+          { col:'M', tableId:'M4', count:40, groupSize:8 },
+          { col:'M', tableId:'M5', count:40, groupSize:8 },
+          { col:'N', tableId:'N1', count:40, groupSize:8 },
+          { col:'N', tableId:'N2', count:40, groupSize:8 },
+          { col:'N', tableId:'N3', count:40, groupSize:8 },
+          { col:'N', tableId:'N4', count:40, groupSize:8 },
+          { col:'N', tableId:'N5', count:40, groupSize:8 },
+        ],
+        colGapsAfter: [4, 9, 14, 19, 24],
+        defaultEnabled: true
+      }
+    ]
+  },
+  S210: {
+    name: 'S210（大講義室２）',
+    description: '前：移動式144席 / 後ろ：固定108席 / 合計252席（通常使用168席）',
+    sections: [
+      { id: 'front', name: '前方エリア（移動式）', cols: ['A','B','C','D','E','F','G','H','I','J','K','L'], rows: 12, colGapsAfter: [2,5,8], defaultEnabled: true },
+      { id: 'back',  name: '後方エリア（固定席）', cols: ['M','N','O','P','Q','R','S','T','U','V','W','X'], rows: 9,  colGapsAfter: [2,5,8], defaultEnabled: false }
+    ]
+  },
+  S313: {
+    name: 'S313（大講義室３）',
+    description: '前：移動式132席 / 後ろ：固定108席 / 合計240席（通常使用160席）',
+    sections: [
+      { id: 'front', name: '前方エリア（移動式）', cols: ['A','B','C','D','E','F','G','H','I','J','K','L'], rows: 11, colGapsAfter: [2,5,8], defaultEnabled: true },
+      { id: 'back',  name: '後方エリア（固定席）', cols: ['M','N','O','P','Q','R','S','T','U','V','W','X'], rows: 9,  colGapsAfter: [2,5,8], defaultEnabled: false }
+    ]
+  },
+  // ── 1F ────────────────────────────────
+  S112: {
+    name: 'S112（固定机）',
+    description: '固定机 / 161名 / 10列×17行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I','J'], rows: 17,
+      colGapsAfter: [2,6], defaultEnabled: true,
+      absentCells: new Set(['H15','I15','J15','H16','I16','J16','H17','I17','J17'])
+    }]
+  },
+  S113: {
+    name: 'S113（固定机）',
+    description: '固定机 / 161名 / 10列×17行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I','J'], rows: 17,
+      colGapsAfter: [2,6], defaultEnabled: true,
+      absentCells: new Set(['A15','B15','C15','A16','B16','C16','A17','B17','C17'])
+    }]
+  },
+  S114: {
+    name: 'S114（移動机）',
+    description: '移動机 / 153名 / 9列×17行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I'], rows: 17,
+      colGapsAfter: [2,5], defaultEnabled: true
+    }]
+  },
+  S115: {
+    name: 'S115（移動机）',
+    description: '移動机 / 21名（通常使用12名）/ 6列×4行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F'], rows: 4,
+      colGapsAfter: [2], defaultEnabled: true,
+      absentCells: new Set(['D04','E04','F04'])
+    }]
+  },
+  S117: {
+    name: 'S117（移動机）',
+    description: '移動机 / 18名（通常使用9名）/ 3列×6行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C'], rows: 6,
+      colGapsAfter: [], defaultEnabled: true
+    }]
+  },
+  // ── 1F (122〜) ─────────────────────────
+  S122: {
+    name: 'S122（固定机）',
+    description: '固定机 / 67名 / 10列×7行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I','J'], rows: 7,
+      colGapsAfter: [2,6], defaultEnabled: true,
+      absentCells: new Set(['H07','I07','J07'])
+    }]
+  },
+  S124: {
+    name: 'S124（固定机）',
+    description: '固定机 / 161名 / 10列×17行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I','J'], rows: 17,
+      colGapsAfter: [2,6], defaultEnabled: true,
+      absentCells: new Set(['A15','B15','C15','A16','B16','C16','A17','B17','C17'])
+    }]
+  },
+  S125: {
+    name: 'S125（固定机）',
+    description: '固定机 / 151名 / 10列×16行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I','J'], rows: 16,
+      colGapsAfter: [2,6], defaultEnabled: true,
+      absentCells: new Set(['H14','I14','J14','H15','I15','J15','H16','I16','J16'])
+    }]
+  },
+  S126: {
+    name: 'S126（固定机）',
+    description: '固定机 / 95名 / 10列×10行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I','J'], rows: 10,
+      colGapsAfter: [2,6], defaultEnabled: true,
+      absentCells: new Set(['F10','G10','H10','I10','J10'])
+    }]
+  },
+  // ── 1F (131〜) ─────────────────────────
+  S131: {
+    name: 'S131（固定机）',
+    description: '固定机 / 215名 / 14列×16行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I','J','K','L','M','N'], rows: 16,
+      colGapsAfter: [2,6,10], defaultEnabled: true,
+      absentCells: new Set(['L14','M14','N14','L15','M15','N15','L16','M16','N16'])
+    }]
+  },
+  S133: {
+    name: 'S133（固定机）',
+    description: '固定机 / 182名 / 14列×13行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I','J','K','L','M','N'], rows: 13,
+      colGapsAfter: [2,6,10], defaultEnabled: true
+    }]
+  },
+  S134: {
+    name: 'S134（固定机）',
+    description: '固定机 / 215名 / 14列×16行',
+    sections: [{
+      id: 'main', name: '全体',
+      cols: ['A','B','C','D','E','F','G','H','I','J','K','L','M','N'], rows: 16,
+      colGapsAfter: [2,6,10], defaultEnabled: true,
+      absentCells: new Set(['A14','B14','C14','A15','B15','C15','A16','B16','C16'])
+    }]
+  },
+  // ── 3F ────────────────────────────────
+  S354: {
+    name: 'S354',
+    description: '69名（通常使用46名）/ 12行',
+    sections: [
+      { id: 'main', name: '全体', cols: ['A','B','C','D','E','F'], rows: 12, colGapsAfter: [2], defaultEnabled: true }
+    ]
+  },
+  S364: {
+    name: 'S364',
+    description: '69名（通常使用46名）/ 12行',
+    sections: [
+      { id: 'main', name: '全体', cols: ['A','B','C','D','E','F'], rows: 12, colGapsAfter: [2], defaultEnabled: true }
+    ]
+  },
+  // ── 4F ────────────────────────────────
+  S401: {
+    name: 'S401（講義室4-1）',
+    description: '可動式 / 105名（通常使用70名）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','E','F','G','I','J','K'], rows: 12, colGapsAfter: [2,5], defaultEnabled: true,
+        absentCells: new Set(['A12','B12','C12'])
+      }
+    ]
+  },
+  S403: {
+    name: 'S403（講義室4-3）',
+    description: '可動式 / 105名（通常使用70名）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','E','F','G','I','J','K'], rows: 12, colGapsAfter: [2,5], defaultEnabled: true,
+        absentCells: new Set(['I12','J12','K12'])
+      }
+    ]
+  },
+  S405: {
+    name: 'S405（講義室4-4）',
+    description: '可動式 / 78名（通常使用52名）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','E','F','G','I','J','K'], rows: 9, colGapsAfter: [2,5], defaultEnabled: true,
+        absentCells: new Set(['I05','J05','K05'])
+      }
+    ]
+  },
+  S407: {
+    name: 'S407（移動式）',
+    description: '移動式 / 177名（通常使用118名）',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','D','E','F','G','H','I','J','K','L'], rows: 15, colGapsAfter: [2,5,8], defaultEnabled: true,
+        absentCells: new Set(['A15','B15','C15'])
+      }
+    ]
+  },
+  S410: {
+    name: 'S410（可動式）',
+    description: '可動式 / 117名（通常使用78名）',
+    sections: [
+      { id: 'main', name: '全体', cols: ['A','B','C','E','F','G','I','J','K'], rows: 13, colGapsAfter: [2,5], defaultEnabled: true }
+    ]
+  },
+  S421: {
+    name: 'S421（前：移動式、後ろ：固定）',
+    description: '前：移動式156席 / 後ろ：固定108席 / 合計264席（通常使用176席）',
+    sections: [
+      { id: 'front', name: '前方エリア（移動式）', cols: ['A','B','C','D','E','F','G','H','I','J','K','L'], rows: 13, colGapsAfter: [2,5,8], defaultEnabled: true },
+      { id: 'back',  name: '後方エリア（固定席）', cols: ['M','N','O','P','Q','R','S','T','U','V','W','X'], rows: 9,  colGapsAfter: [2,5,8], defaultEnabled: false }
+    ]
+  },
+  S422: {
+    name: 'S422（移動式）',
+    description: '移動式 / 84名（通常使用56名）',
+    sections: [
+      { id: 'main', name: '全体', cols: ['A','B','C','D','E','F','G','H','I','J','K','L'], rows: 7, colGapsAfter: [2,5,8], defaultEnabled: true }
+    ]
+  },
+  S424: {
+    name: 'S424',
+    description: '56名（通常使用40名）/ 3ブロック×7行',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','D','E','F','G','H'], rows: 7, colGapsAfter: [2,5], defaultEnabled: true,
+        // Block1: A-C(3cols x 7=21≈20), Block2: D-F(21≈20), Block3: G-H(2cols x 7=14+2=16)
+        absentCells: new Set(['A07','B07','C07','D07','E07','F07'])
+      }
+    ]
+  },
+  S426: {
+    name: 'S426（移動机）',
+    description: '移動机 / 24名（通常使用12名）/ 4行',
+    sections: [
+      { id: 'main', name: '全体', cols: ['A','B','C','D','E','F'], rows: 4, colGapsAfter: [], defaultEnabled: true }
+    ]
+  },
+  S432: {
+    name: 'S432',
+    description: '87名（通常使用58名）/ 10行',
+    sections: [
+      {
+        id: 'main', name: '全体',
+        cols: ['A','B','C','D','E','F','G','H','I'], rows: 10, colGapsAfter: [2,5], defaultEnabled: true,
+        absentCells: new Set(['G10','H10','I10'])
+      }
+    ]
+  }
+};
+
+// =========================================================
+// CLASSROOM
+// =========================================================
+function selectClassroom() {
+  const id = document.getElementById('classroomSelect').value;
+  if (!id) return;
+  state.classroomId = id;
+  state.seats = {};
+  state.assignment = {};
+  state.assigned = false;
+
+  const cls = CLASSROOMS[id];
+  let seqNum = 1;
+
+  if (cls.tableLayout) {
+    for (const sec of cls.sections) {
+      const colGroupIdx = {};
+      for (const tbl of sec.tables) {
+        if (!(tbl.col in colGroupIdx)) colGroupIdx[tbl.col] = 0;
+        const g = colGroupIdx[tbl.col];
+        tbl.groupIdx = g; // stamp onto definition so render/toggle can use tbl.groupIdx
+        const startSeat = g * tbl.groupSize + 1;
+        const endSeat   = (g + 1) * tbl.groupSize;
+        for (let n = startSeat; n <= endSeat; n++) {
+          const seatId = `${tbl.col}${n}`;
+          state.seats[seatId] = {
+            id: seatId,
+            seatNum: seqNum++,
+            section: sec.id,
+            col: tbl.col,
+            tableId: tbl.tableId,
+            colIdx: sec.tables.indexOf(tbl),
+            seatNumInCol: n,
+            groupSize: tbl.groupSize,
+            groupIdx: g,
+            rowInGroup: n - startSeat + 1,
+            enabled: sec.defaultEnabled
+          };
+        }
+        colGroupIdx[tbl.col]++;
+      }
+    }
+  } else {
+    // Standard grid: seatId = "A01", "B12" etc.
+    for (const sec of cls.sections) {
+      for (let r = 1; r <= sec.rows; r++) {
+        for (let ci = 0; ci < sec.cols.length; ci++) {
+          const col = sec.cols[ci];
+          if (sec.colMaxRows && r > (sec.colMaxRows[col] || sec.rows)) continue;
+          const seatId = `${col}${String(r).padStart(2,'0')}`;
+          if (sec.absentCells && sec.absentCells.has(seatId)) continue;
+          state.seats[seatId] = {
+            id: seatId,
+            seatNum: seqNum++,
+            section: sec.id,
+            col,
+            colIdx: ci,
+            row: r,
+            enabled: sec.defaultEnabled
+          };
+        }
+      }
+    }
+  }
+
+  document.getElementById('classroomInfo').textContent = cls.description;
+  document.getElementById('classroomInfo').classList.remove('hidden');
+
+  // Show back-section toggle button only for rooms that have defaultEnabled:false sections
+  const hasBackSection = cls.sections && !cls.tableLayout &&
+    cls.sections.some(s => !s.defaultEnabled);
+  const btnBack = document.getElementById('btnBackSection');
+  if (hasBackSection) {
+    btnBack.style.display = '';
+    updateBackSectionButton();
+  } else {
+    btnBack.style.display = 'none';
+  }
+
+  renderClassroom();
+  renderBulkPanel();
+  updateStatus();
+  updateSteps();
+  document.getElementById('btnSeatToggle').disabled = false;
+  document.getElementById('bulkPanel').classList.remove('hidden');
+}
+
+// =========================================================
+// STATE
+// =========================================================
+let state = {
+  classroomId: null,
+  seats: {},        // seatId -> { id, section, col, colIdx, row, enabled }
+  students: [],     // [{id, name, score}]  score may be null
+  hasScore: false,  // whether score column was found
+  assignment: {},   // seatId -> studentIdx
+  orderMode: 'random',
+  emptyMode: 'front',
+  uiMode: null,     // 'toggle' | 'swap'
+  swapSource: null,
+  assigned: false
+};
+
+// =========================================================
+// INIT
+// =========================================================
+window.onload = () => {
+  const sel = document.getElementById('classroomSelect');
+  for (const [k, v] of Object.entries(CLASSROOMS)) {
+    const opt = document.createElement('option');
+    opt.value = k; opt.textContent = v.name;
+    sel.appendChild(opt);
+  }
+  updateSteps();
+  updateStatus();
+  updateScoreOption();
+};
+
+// =========================================================
+// BULK PANEL (column / row chips)
+// =========================================================
+function renderBulkPanel() {
+  if (!state.classroomId) return;
+  const cls = CLASSROOMS[state.classroomId];
+
+  if (cls.tableLayout) {
+    // Col chips: one chip per table block (A1-A5, B1-B5, ...)
+    const colContainer = document.getElementById('colChips');
+    colContainer.innerHTML = '';
+    let prevCol = null;
+    for (const sec of cls.sections) {
+      for (const tbl of sec.tables) {
+        if (tbl.col !== prevCol) {
+          if (prevCol !== null) {
+            colContainer.appendChild(Object.assign(document.createElement('div'), {style:'width:8px;flex-shrink:0;'}));
+          }
+          prevCol = tbl.col;
+        }
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.textContent = tbl.tableId;
+        chip.dataset.tableId = tbl.tableId;
+        updateTableIdChipState(chip, tbl); // pass tbl object
+        // Capture values for closure
+        const col = tbl.col, gs = tbl.groupSize;
+        const gIdx = getGroupIdx(sec, tbl);
+        chip.onclick = () => toggleTableIdBulk(col, gIdx, gs);
+        colContainer.appendChild(chip);
+      }
+      break; // col chips only from first section
+    }
+
+    // Row chips: rows within each table (1..maxGroupSize per section)
+    const rowContainer = document.getElementById('rowChips');
+    rowContainer.innerHTML = '';
+    const multiSection = cls.sections.length > 1;
+    for (const sec of cls.sections) {
+      if (multiSection) {
+        const lbl = document.createElement('span');
+        lbl.style.cssText = 'font-size:10px;color:var(--text3);font-weight:600;align-self:center;white-space:nowrap;margin-right:2px;';
+        lbl.textContent = sec.name.replace(/エリア.*/, '') + ':';
+        rowContainer.appendChild(lbl);
+      }
+      const maxGS = Math.max(...sec.tables.map(t => t.groupSize));
+      for (let r = 1; r <= maxGS; r++) {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.textContent = r;
+        chip.dataset.secId = sec.id;
+        chip.dataset.row = r;
+        chip.dataset.tableRow = '1';
+        updateTableRowChipState(chip, sec, r);
+        chip.onclick = () => toggleTableRowBulk(sec, r);
+        rowContainer.appendChild(chip);
+      }
+      if (multiSection) rowContainer.appendChild(Object.assign(document.createElement('div'), {style:'width:8px;flex-shrink:0;'}));
+    }
+    return;
+  }
+
+  // Standard grid rooms
+  const allCols = [];
+  for (const sec of cls.sections) for (const col of sec.cols) if (!allCols.includes(col)) allCols.push(col);
+  renderChips('colChips', allCols, 'col');
+
+  const rowContainer = document.getElementById('rowChips');
+  rowContainer.innerHTML = '';
+  const multiSection = cls.sections.length > 1;
+  for (const sec of cls.sections) {
+    if (multiSection) {
+      const lbl = document.createElement('span');
+      lbl.style.cssText = 'font-size:10px;color:var(--text3);font-weight:600;align-self:center;white-space:nowrap;margin-right:2px;';
+      lbl.textContent = sec.name.replace(/エリア.*/, '') + ':';
+      rowContainer.appendChild(lbl);
+    }
+    for (let r = 1; r <= sec.rows; r++) {
+      const hasSeats = sec.cols.some(col => {
+        const sid = `${col}${String(r).padStart(2,'0')}`;
+        return !!state.seats[sid];
+      });
+      if (!hasSeats) continue;
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = r;
+      chip.dataset.secId = sec.id;
+      chip.dataset.row = r;
+      updateRowChipState(chip, sec.id, r);
+      chip.onclick = () => toggleBulkRow(sec, r);
+      rowContainer.appendChild(chip);
+    }
+    if (multiSection) rowContainer.appendChild(Object.assign(document.createElement('div'), {style:'width:8px;flex-shrink:0;'}));
+  }
+}
+
+function renderChips(containerId, items, type) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  for (const item of items) {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.textContent = item;
+    chip.dataset.value = item;
+    chip.dataset.type = type;
+    updateChipState(chip, type, item);
+    chip.onclick = () => toggleBulk(type, item);
+    container.appendChild(chip);
+  }
+}
+
+function updateChipState(chip, type, value) {
+  const relevant = Object.values(state.seats).filter(s =>
+    type === 'col' ? s.col === value : false
+  );
+  if (!relevant.length) return;
+  const allOff = relevant.every(s => !s.enabled);
+  chip.className = 'chip ' + (allOff ? 'off' : 'on');
+}
+
+function updateRowChipState(chip, secId, rowNum) {
+  const relevant = Object.values(state.seats).filter(s =>
+    s.section === secId && s.row === rowNum
+  );
+  if (!relevant.length) return;
+  const allOff = relevant.every(s => !s.enabled);
+  chip.className = 'chip ' + (allOff ? 'off' : 'on');
+}
+
+function toggleBulk(type, value) {
+  // Only used for columns now
+  const relevant = Object.values(state.seats).filter(s => s.col === value);
+  const allOff = relevant.every(s => !s.enabled);
+  const newEnabled = allOff;
+  for (const seat of relevant) {
+    seat.enabled = newEnabled;
+    if (!newEnabled && state.assignment[seat.id] !== undefined) delete state.assignment[seat.id];
+  }
+  refreshAllSeats();
+  refreshAllChips();
+  updateStatus();
+}
+
+function updateTableIdChipState(chip, tbl) {
+  // Find which section this table belongs to
+  const cls = CLASSROOMS[state.classroomId];
+  let sec = null;
+  for (const s of cls.sections) {
+    if (s.tables.includes(tbl)) { sec = s; break; }
+  }
+  if (!sec) return;
+  const gIdx = getGroupIdx(sec, tbl);
+  const startN = gIdx * tbl.groupSize + 1;
+  const endN   = (gIdx + 1) * tbl.groupSize;
+  const relevant = [];
+  for (let n = startN; n <= endN; n++) {
+    const s = state.seats[`${tbl.col}${n}`]; if (s) relevant.push(s);
+  }
+  if (!relevant.length) return;
+  chip.className = 'chip ' + (relevant.every(s => !s.enabled) ? 'off' : 'on');
+}
+
+function updateTableRowChipState(chip, sec, r) {
+  const relevant = [];
+  for (const tbl of sec.tables) {
+    const gIdx = getGroupIdx(sec, tbl);
+    const n = gIdx * tbl.groupSize + r;
+    const s = state.seats[`${tbl.col}${n}`]; if (s) relevant.push(s);
+  }
+  if (!relevant.length) return;
+  chip.className = 'chip ' + (relevant.every(s => !s.enabled) ? 'off' : 'on');
+}
+
+function refreshAllChips() {
+  if (!state.classroomId) return;
+  const cls = CLASSROOMS[state.classroomId];
+  if (cls.tableLayout) {
+    document.querySelectorAll('#colChips .chip[data-table-id]').forEach(chip => {
+      const sec = cls.sections[0]; // col chips come from first section structure
+      const tbl = cls.sections.flatMap(s => s.tables).find(t => t.tableId === chip.dataset.tableId);
+      if (tbl) updateTableIdChipState(chip, tbl);
+    });
+    document.querySelectorAll('#rowChips .chip[data-table-row]').forEach(chip => {
+      const sec = cls.sections.find(s => s.id === chip.dataset.secId);
+      if (sec) updateTableRowChipState(chip, sec, parseInt(chip.dataset.row));
+    });
+  } else {
+    document.querySelectorAll('#colChips .chip').forEach(chip => updateChipState(chip, 'col', chip.dataset.value));
+    document.querySelectorAll('#rowChips .chip[data-sec-id]').forEach(chip => {
+      updateRowChipState(chip, chip.dataset.secId, parseInt(chip.dataset.row));
+    });
+  }
+}
+
+function renderClassroom() {
+  if (!state.classroomId) return;
+  const cls = CLASSROOMS[state.classroomId];
+  document.getElementById('classroomTitle').textContent = cls.name;
+  document.getElementById('classroomSubtitle').textContent = cls.description;
+
+  const container = document.getElementById('classroomContainer');
+  container.innerHTML = '';
+
+  const podium = document.createElement('div');
+  podium.className = 'podium-area';
+  podium.textContent = '🎤 教卓・スクリーン（前方）';
+  container.appendChild(podium);
+
+  if (cls.tableLayout) {
+    renderClassroomTableLayout(cls, container);
+  } else {
+    renderClassroomGrid(cls, container);
+  }
+
+  const legend = document.createElement('div');
+  legend.className = 'seat-legend';
+  legend.innerHTML = `
+    <div class="legend-item"><div class="legend-dot" style="background:var(--seat-available);border-color:var(--seat-available-border)"></div>使用可（空席）</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--seat-occupied);border-color:#1a3a08"></div>着席済</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--seat-disabled);border-color:var(--seat-disabled-border)"></div>使用不可</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fff3cd;border-color:var(--seat-selected-border)"></div>選択中</div>
+    <div class="legend-item" style="color:var(--text3)">列ラベル・行番号クリックで一括切替</div>
+  `;
+  container.appendChild(legend);
+}
+
+// Standard grid for all rooms except S141/S142
+function renderClassroomGrid(cls, container) {
+  for (const sec of cls.sections) {
+    const divider = document.createElement('div');
+    divider.className = 'section-divider';
+    divider.innerHTML = `<div class="section-divider-line"></div><div class="section-divider-text">${sec.name}</div><div class="section-divider-line"></div>`;
+    container.appendChild(divider);
+
+    const grid = document.createElement('div');
+    grid.className = 'seat-grid';
+
+    const header = document.createElement('div');
+    header.className = 'seat-row';
+    header.appendChild(Object.assign(document.createElement('div'), {className:'row-label'}));
+    for (let ci = 0; ci < sec.cols.length; ci++) {
+      const col = sec.cols[ci];
+      const h = document.createElement('div');
+      h.className = 'col-header-cell';
+      h.textContent = col;
+      h.title = `列 ${col} をまとめて切替`;
+      h.onclick = () => toggleBulk('col', col);
+      header.appendChild(h);
+      if (sec.colGapsAfter && sec.colGapsAfter.includes(ci)) {
+        header.appendChild(Object.assign(document.createElement('div'), {style:'width:16px;flex-shrink:0;'}));
+      }
+    }
+    grid.appendChild(header);
+
+    for (let r = 1; r <= sec.rows; r++) {
+      const hasSeats = sec.cols.some(col => !!state.seats[`${col}${String(r).padStart(2,'0')}`]);
+      if (!hasSeats) continue;
+
+      const row = document.createElement('div');
+      row.className = 'seat-row';
+
+      const lbl = document.createElement('div');
+      lbl.className = 'row-label-btn';
+      lbl.textContent = r;
+      lbl.title = `${r}行目をまとめて切替`;
+      lbl.onclick = () => toggleBulkRow(sec, r);
+      row.appendChild(lbl);
+
+      for (let ci = 0; ci < sec.cols.length; ci++) {
+        const col = sec.cols[ci];
+        const seatId = `${col}${String(r).padStart(2,'0')}`;
+        const seatData = state.seats[seatId];
+        if (!seatData) {
+          row.appendChild(Object.assign(document.createElement('div'), {style:'width:48px;height:44px;flex-shrink:0;visibility:hidden;'}));
+        } else {
+          const seat = document.createElement('div');
+          seat.className = 'seat'; seat.id = `seat-${seatId}`; seat.dataset.seatId = seatId;
+          seat.onclick = () => handleSeatClick(seatId);
+          updateSeatEl(seat, seatData, seatId);
+          row.appendChild(seat);
+        }
+        if (sec.colGapsAfter && sec.colGapsAfter.includes(ci)) {
+          row.appendChild(Object.assign(document.createElement('div'), {style:'width:16px;flex-shrink:0;border-left:2px dashed var(--border2);'}));
+        }
+      }
+      grid.appendChild(row);
+    }
+    container.appendChild(grid);
+  }
+}
+
+// Helper: get the group index of a table within its column (0-based)
+function getGroupIdx(sec, tbl) {
+  let idx = 0;
+  for (const t of sec.tables) {
+    if (t === tbl) return idx;
+    if (t.col === tbl.col) idx++;
+  }
+  return idx;
+}
+
+// Table-block rendering for S141/S142
+function renderClassroomTableLayout(cls, container) {
+  for (const sec of cls.sections) {
+    const divider = document.createElement('div');
+    divider.className = 'section-divider';
+    divider.innerHTML = `<div class="section-divider-line"></div><div class="section-divider-text">${sec.name}</div><div class="section-divider-line"></div>`;
+    container.appendChild(divider);
+
+    const maxGroupSize = Math.max(...sec.tables.map(t => t.groupSize));
+    const grid = document.createElement('div');
+    grid.className = 'seat-grid';
+
+    // Header: tableId labels
+    const hdr = document.createElement('div');
+    hdr.className = 'seat-row';
+    hdr.appendChild(Object.assign(document.createElement('div'), {className:'row-label'}));
+    for (let ci = 0; ci < sec.tables.length; ci++) {
+      const tbl = sec.tables[ci];
+      const gIdx = getGroupIdx(sec, tbl);
+      const h = document.createElement('div');
+      h.className = 'col-header-cell'; h.style.fontSize = '9px';
+      h.textContent = tbl.tableId;
+      h.title = `テーブル ${tbl.tableId} をまとめて切替`;
+      h.onclick = () => toggleTableIdBulk(tbl.col, gIdx, tbl.groupSize);
+      hdr.appendChild(h);
+      if (sec.colGapsAfter && sec.colGapsAfter.includes(ci))
+        hdr.appendChild(Object.assign(document.createElement('div'), {style:'width:16px;flex-shrink:0;'}));
+    }
+    grid.appendChild(hdr);
+
+    // Seat rows
+    for (let r = 1; r <= maxGroupSize; r++) {
+      const row = document.createElement('div');
+      row.className = 'seat-row';
+
+      const lbl = document.createElement('div');
+      lbl.className = 'row-label-btn'; lbl.textContent = r;
+      lbl.title = `各テーブルの${r}行目をまとめて切替`;
+      lbl.onclick = () => toggleTableRowBulk(sec, r);
+      row.appendChild(lbl);
+
+      for (let ci = 0; ci < sec.tables.length; ci++) {
+        const tbl = sec.tables[ci];
+        const gIdx = getGroupIdx(sec, tbl);
+        const seatNumInCol = gIdx * tbl.groupSize + r;
+        const seatId = `${tbl.col}${seatNumInCol}`;
+        const seatData = state.seats[seatId];
+
+        if (!seatData) {
+          row.appendChild(Object.assign(document.createElement('div'), {style:'width:48px;height:44px;flex-shrink:0;visibility:hidden;'}));
+        } else {
+          const seat = document.createElement('div');
+          seat.className = 'seat'; seat.id = `seat-${seatId}`; seat.dataset.seatId = seatId;
+          seat.onclick = () => handleSeatClick(seatId);
+          updateSeatEl(seat, seatData, seatId);
+          row.appendChild(seat);
+        }
+        if (sec.colGapsAfter && sec.colGapsAfter.includes(ci))
+          row.appendChild(Object.assign(document.createElement('div'), {style:'width:16px;flex-shrink:0;border-left:2px dashed var(--border2);'}));
+      }
+      grid.appendChild(row);
+    }
+    container.appendChild(grid);
+  }
+}
+
+// Toggle all seats in one table block
+function toggleTableIdBulk(col, gIdx, groupSize) {
+  const startN = gIdx * groupSize + 1;
+  const endN   = (gIdx + 1) * groupSize;
+  const relevant = [];
+  for (let n = startN; n <= endN; n++) {
+    const s = state.seats[`${col}${n}`]; if (s) relevant.push(s);
+  }
+  if (!relevant.length) return;
+  const newEnabled = relevant.every(s => !s.enabled);
+  for (const s of relevant) {
+    s.enabled = newEnabled;
+    if (!newEnabled && state.assignment[s.id] !== undefined) delete state.assignment[s.id];
+  }
+  refreshAllSeats(); refreshAllChips(); updateStatus();
+}
+
+// Toggle row r within each table of a tableLayout section
+function toggleTableRowBulk(sec, r) {
+  const relevant = [];
+  for (const tbl of sec.tables) {
+    const g = getGroupIdx(sec, tbl);
+    const n = g * tbl.groupSize + r;
+    const s = state.seats[`${tbl.col}${n}`];
+    if (s) relevant.push(s);
+  }
+  if (!relevant.length) return;
+  const newEnabled = relevant.every(s => !s.enabled);
+  for (const s of relevant) {
+    s.enabled = newEnabled;
+    if (!newEnabled && state.assignment[s.id] !== undefined) delete state.assignment[s.id];
+  }
+  refreshAllSeats(); refreshAllChips(); updateStatus();
+}
+
+// Standard row toggle for grid rooms
+function toggleBulkRow(sec, rowNum) {
+  const relevant = Object.values(state.seats).filter(s => s.section === sec.id && s.row === rowNum);
+  const allOff = relevant.every(s => !s.enabled);
+  const newEnabled = allOff;
+  for (const seat of relevant) {
+    seat.enabled = newEnabled;
+    if (!newEnabled && state.assignment[seat.id] !== undefined) delete state.assignment[seat.id];
+  }
+  refreshAllSeats(); refreshAllChips(); updateStatus();
+}
+
+function updateSeatEl(el, seatData, seatId) {
+  if (!seatData) return;
+  const isSwapSource = state.swapSource === seatId;
+  // Display label: sequential number
+  const label = seatData.seatNum ? String(seatData.seatNum) : seatId;
+  if (!seatData.enabled) {
+    el.className = 'seat disabled';
+    el.innerHTML = `<div class="seat-id">${label}</div><div class="disabled-x">✕</div>`;
+  } else if (isSwapSource) {
+    el.className = 'seat selected-swap';
+    const student = getStudentAtSeat(seatId);
+    el.innerHTML = student
+      ? `<div class="seat-id">${label}</div><div class="seat-name">${shortName(student.name)}</div>`
+      : `<div class="seat-id">${label}</div>`;
+  } else if (state.assignment[seatId] !== undefined) {
+    const student = state.students[state.assignment[seatId]];
+    el.className = 'seat occupied';
+    el.innerHTML = `<div class="seat-id">${label}</div><div class="seat-name">${shortName(student.name)}</div>`;
+  } else {
+    el.className = 'seat available';
+    el.innerHTML = `<div class="seat-id">${label}</div>`;
+  }
+}
+
+function refreshSeat(seatId) {
+  const el = document.getElementById(`seat-${seatId}`);
+  if (el) updateSeatEl(el, state.seats[seatId], seatId);
+}
+
+function refreshAllSeats() {
+  for (const seatId of Object.keys(state.seats)) refreshSeat(seatId);
+}
+
+function shortName(name) {
+  const cleaned = name.replace(/（[^）]*）/g,'').replace(/\([^)]*\)/g,'').trim();
+  const parts = cleaned.split(/[\s　]+/);
+  if (parts.length >= 2) return parts[1] || parts[0];
+  return cleaned.slice(0, 4);
+}
+
+// =========================================================
+// SEAT CLICK
+// =========================================================
+function handleDragOver(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('csvDropZone').classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('csvDropZone').classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('csvDropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['csv','xlsx','xls'].includes(ext)) {
+    showLoadAlert('error', '対応ファイル形式は CSV または Excel（.xlsx）です。');
+    return;
+  }
+  // Reuse existing loader
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  const input = document.getElementById('csvFile');
+  input.files = dt.files;
+  loadStudentFile(input);
+}
+
+// =========================================================
+// SEAT CLICK
+// =========================================================
+function handleSeatClick(seatId) {
+  const seatData = state.seats[seatId];
+  if (!seatData) return;
+
+  if (state.uiMode === 'toggle') {
+    seatData.enabled = !seatData.enabled;
+    if (!seatData.enabled && state.assignment[seatId] !== undefined) delete state.assignment[seatId];
+    refreshSeat(seatId);
+    refreshAllChips();
+    updateStatus();
+    return;
+  }
+
+  if (state.uiMode === 'swap') {
+    if (!seatData.enabled) return;
+    if (!state.swapSource) {
+      if (state.assignment[seatId] === undefined) {
+        showToast('先に学生が座っている席をクリックしてください');
+        return;
+      }
+      state.swapSource = seatId;
+      refreshSeat(seatId);
+      const student = state.students[state.assignment[seatId]];
+      document.getElementById('modeBarText').textContent =
+        `1席目: ${seatId}（${student.name}） → 2席目をクリックすると入れ替えます。空席なら移動します。`;
+    } else if (state.swapSource === seatId) {
+      state.swapSource = null;
+      refreshSeat(seatId);
+      document.getElementById('modeBarText').textContent = '1席目として、移動したい学生の席をクリックしてください。';
+    } else {
+      const src = state.swapSource, dst = seatId;
+      const srcS = state.assignment[src], dstS = state.assignment[dst];
+      if (srcS === undefined && dstS === undefined) { showToast('どちらの座席にも学生がいません'); state.swapSource = null; refreshSeat(src); return; }
+      if (dstS !== undefined) state.assignment[src] = dstS; else delete state.assignment[src];
+      if (srcS !== undefined) state.assignment[dst] = srcS; else delete state.assignment[dst];
+      state.swapSource = null;
+      refreshSeat(src); refreshSeat(dst);
+      renderStudentList();
+      document.getElementById('modeBarText').textContent = '完了しました。続けて入れ替える場合は、次の学生の席をクリックしてください。';
+      showToast(dstS === undefined ? '✓ 学生を空席へ移動しました' : '✓ 2人の座席を入れ替えました');
+    }
+  }
+}
+
+// =========================================================
+// STUDENT LOADING
+// =========================================================
+function loadStudentFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'csv') {
+    const reader = new FileReader();
+    // Try UTF-8 first, fallback handled in parseRawData
+    reader.onload = e => parseRawData(e.target.result, file.name);
+    reader.onerror = () => {
+      // fallback shift-jis
+      const r2 = new FileReader();
+      r2.onload = e2 => parseRawData(e2.target.result, file.name);
+      r2.readAsText(file, 'Shift_JIS');
+    };
+    reader.readAsText(file, 'UTF-8');
+  } else {
+    // Excel
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array', codepage: 932 });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        // Get raw 2D array
+        const arr = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        parseExcelArray(arr, file.name);
+      } catch (err) {
+        showLoadAlert('error', 'Excelの読み込みに失敗しました: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+// Parse Excel 2D array — handles multi-row headers like 学生情報.xlsx
+function parseExcelArray(arr, filename) {
+  if (!arr || arr.length < 2) { showLoadAlert('error', 'データが空です'); return; }
+
+  // Find the row that contains 学籍番号
+  let headerRowIdx = -1;
+  let idCol = -1, nameCol = -1, scoreCol = -1;
+
+  for (let ri = 0; ri < Math.min(10, arr.length); ri++) {
+    const row = arr[ri].map(v => String(v).trim());
+    const tryId = findColIndex(row, ['学籍番号','学籍','学生番号','student_id','ID']);
+    const tryName = findColIndex(row, ['学生氏名','氏名','名前','学生名','name','氏　名','学生名称']);
+    if (tryId >= 0 && tryName >= 0) {
+      headerRowIdx = ri;
+      idCol = tryId;
+      nameCol = tryName;
+      scoreCol = findColIndex(row, ['成績','点数','score','grade','出席率']);
+      break;
+    }
+  }
+
+  if (headerRowIdx < 0) {
+    showLoadAlert('error', '学籍番号・氏名の列が見つかりませんでした。\nヘッダー行に「学籍番号」「学生氏名（または氏名）」が含まれているか確認してください。');
+    return;
+  }
+
+  const students = [];
+  for (let ri = headerRowIdx + 1; ri < arr.length; ri++) {
+    const row = arr[ri];
+    // Skip sub-header rows (like 木曜1限 rows in 学生情報.xlsx)
+    const id = String(row[idCol] ?? '').trim();
+    const name = String(row[nameCol] ?? '').trim();
+    if (!id || !name || id === '学籍番号' || id === '') continue;
+    // Skip rows that look like sub-headers (contain 授業 or 曜日 etc.)
+    if (/^[木金月火水土日]曜/.test(id) || id === '授業') continue;
+
+    const scoreRaw = scoreCol >= 0 ? String(row[scoreCol] ?? '').trim() : '';
+    const score = parseScore(scoreRaw);
+    students.push({ id, name, score });
+  }
+
+  finishLoad(students, filename, scoreCol >= 0);
+}
+
+// Parse CSV text
+function parseRawData(text, filename) {
+  // Remove BOM
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+  if (lines.length < 2) { showLoadAlert('error', 'データが少なすぎます'); return; }
+
+  // Find header row
+  let headerRowIdx = -1, idCol = -1, nameCol = -1, scoreCol = -1;
+  for (let ri = 0; ri < Math.min(10, lines.length); ri++) {
+    const cells = parseCSVLine(lines[ri]);
+    const tryId = findColIndex(cells, ['学籍番号','学籍','学生番号','student_id','ID']);
+    const tryName = findColIndex(cells, ['学生氏名','氏名','名前','学生名','name','氏　名']);
+    if (tryId >= 0 && tryName >= 0) {
+      headerRowIdx = ri; idCol = tryId; nameCol = tryName;
+      scoreCol = findColIndex(cells, ['成績','点数','score','grade','出席率']);
+      break;
+    }
+  }
+
+  if (headerRowIdx < 0) {
+    showLoadAlert('error', '学籍番号・氏名の列が見つかりませんでした。\nヘッダーに「学籍番号」「学生氏名（または氏名）」が必要です。');
+    return;
+  }
+
+  const students = [];
+  for (let ri = headerRowIdx + 1; ri < lines.length; ri++) {
+    const cells = parseCSVLine(lines[ri]);
+    const id = (cells[idCol] || '').trim();
+    const name = (cells[nameCol] || '').trim();
+    if (!id || !name) continue;
+    const scoreRaw = scoreCol >= 0 ? (cells[scoreCol] || '') : '';
+    const score = parseScore(scoreRaw);
+    students.push({ id, name, score });
+  }
+
+  finishLoad(students, filename, scoreCol >= 0);
+}
+
+function finishLoad(students, filename, hasScore) {
+  if (students.length === 0) {
+    showLoadAlert('error', '学生データが見つかりませんでした。\nファイル内容を確認してください。');
+    return;
+  }
+
+  state.students = students;
+  state.hasScore = hasScore;
+  state.assignment = {};
+  state.assigned = false;
+
+  document.getElementById('csvIcon').textContent = '✅';
+  const scoreNote = hasScore ? '' : '（成績列なし）';
+  document.getElementById('csvText').innerHTML = `<strong>${filename}</strong><br>${students.length}名を読み込みました ${scoreNote}`;
+  document.getElementById('csvDropZone').classList.add('file-loaded');
+
+  showLoadAlert('info', `${students.length}名を読み込みました。${hasScore ? '成績列あり。' : '成績列が見つからないため、成績順は使用できません。'}`);
+  updateScoreOption();
+  renderStudentList();
+  updateStatus();
+  updateSteps();
+}
+
+function findColIndex(cells, keywords) {
+  return cells.findIndex(c => keywords.some(k => String(c).includes(k)));
+}
+
+function parseScore(raw) {
+  if (!raw) return null;
+  const s = String(raw).replace(/[％%]/g,'').trim();
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+function parseCSVLine(line) {
+  const vals = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') { inQ = !inQ; }
+    else if (line[i] === ',' && !inQ) { vals.push(cur); cur = ''; }
+    else cur += line[i];
+  }
+  vals.push(cur);
+  return vals.map(v => v.replace(/^"|"$/g,''));
+}
+
+function showLoadAlert(type, msg) {
+  const el = document.getElementById('loadAlert');
+  el.className = `alert alert-${type === 'error' ? 'error' : 'info'}`;
+  el.innerHTML = msg.replace(/\n/g,'<br>');
+  el.classList.remove('hidden');
+}
+
+function updateScoreOption() {
+  const item = document.getElementById('orderScoreItem');
+  const sub = document.getElementById('orderScoreSub');
+  if (!state.hasScore) {
+    item.classList.add('disabled-opt');
+    sub.textContent = '成績列がありません';
+    if (state.orderMode === 'score') setOrder('random');
+  } else {
+    item.classList.remove('disabled-opt');
+    sub.textContent = '降順（高→低）';
+  }
+}
+
+function loadSampleStudents() {
+  // サンプルデータは削除済み。出欠管理システムからファイルをダウンロードしてください。
+  showLoadAlert('info', '出欠管理 → 授業科目を選択 → ページ最下部「出欠情報（学生毎）」→ Excel &amp; ヘッダーを含む にチェックしてダウンロードしてください。');
+}
+
+function renderStudentList() {
+  const list = document.getElementById('studentList');
+  document.getElementById('studentCount').textContent = `${state.students.length}名`;
+  if (!state.students.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">学生データを読み込んでください</div>';
+    return;
+  }
+  const studentSeat = {};
+  for (const [seatId, si] of Object.entries(state.assignment)) studentSeat[si] = seatId;
+
+  list.innerHTML = state.students.map((s, i) => `
+    <div class="student-item">
+      <div class="student-id">${s.id}</div>
+      <div class="student-name">${s.name.replace(/（[^）]*）/g,'').trim()}</div>
+      <div class="student-score">${s.score !== null ? s.score : '—'}</div>
+      <div class="student-seat">${studentSeat[i] || '—'}</div>
+    </div>`).join('');
+}
+
+// =========================================================
+// ASSIGNMENT
+// =========================================================
+function getEnabledSeats() {
+  return Object.values(state.seats).filter(s => s.enabled);
+}
+
+function runAssignment() {
+  const enabled = getEnabledSeats();
+  if (enabled.length < state.students.length) { updateStatus(); return; }
+
+  const cls = CLASSROOMS[state.classroomId];
+  const sectionOrder = cls.sections.map(s => s.id);
+  const maxColIdx = Math.max(...enabled.map(s => s.colIdx));
+
+  // Base sort: front section first, then by chosen spatial order
+  const seatOrder = state.orderMode;
+  const isSpatial = seatOrder.startsWith('seat_');
+
+  // Sort seats according to the chosen spatial pattern
+  const sorted = [...enabled].sort((a, b) => {
+    const si = sectionOrder.indexOf(a.section) - sectionOrder.indexOf(b.section);
+    if (si !== 0) return si;
+
+    if (seatOrder === 'seat_col_asc') {
+      // 左前→右後ろ: col昇順が主、行昇順が副
+      if (a.colIdx !== b.colIdx) return a.colIdx - b.colIdx;
+      return a.row - b.row;
+    } else if (seatOrder === 'seat_col_desc') {
+      // 右前→左後ろ: col降順が主、行昇順が副
+      if (a.colIdx !== b.colIdx) return b.colIdx - a.colIdx;
+      return a.row - b.row;
+    } else if (seatOrder === 'seat_row_desc') {
+      // 右→左、前→後ろ: 行昇順が主、col降順が副
+      if (a.row !== b.row) return a.row - b.row;
+      return b.colIdx - a.colIdx;
+    } else {
+      // デフォルト（seat_row_asc、学籍番号順、成績順、ランダム）: 行昇順・col昇順
+      if (a.row !== b.row) return a.row - b.row;
+      return a.colIdx - b.colIdx;
+    }
+  });
+
+  let students = state.students.map((s, i) => ({ ...s, idx: i }));
+
+  if (isSpatial) {
+    // 座席順モード: 学籍番号昇順の学生を、決まった座席順に割り当てる
+    students.sort((a, b) => a.id.localeCompare(b.id));
+  } else if (seatOrder === 'id') {
+    students.sort((a, b) => a.id.localeCompare(b.id));
+  } else if (seatOrder === 'score' && state.hasScore) {
+    students.sort((a, b) => (b.score || 0) - (a.score || 0));
+  } else {
+    // random
+    for (let i = students.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [students[i], students[j]] = [students[j], students[i]];
+    }
+  }
+
+  const n = students.length;
+  let selectedSeats;
+  if (state.emptyMode === 'front') {
+    selectedSeats = sorted.slice(0, n);
+  } else if (state.emptyMode === 'back') {
+    selectedSeats = sorted.slice(sorted.length - n);
+  } else {
+    if (n >= sorted.length) { selectedSeats = sorted; }
+    else {
+      const step = sorted.length / n;
+      selectedSeats = students.map((_, i) => sorted[Math.min(Math.round(i * step), sorted.length - 1)]);
+    }
+  }
+
+  state.assignment = {};
+  for (let i = 0; i < students.length; i++) {
+    if (selectedSeats[i]) state.assignment[selectedSeats[i].id] = students[i].idx;
+  }
+
+  state.assigned = true;
+  refreshAllSeats();
+  renderStudentList();
+  updateStatus();
+  updateSteps();
+  document.getElementById('btnExport').disabled = false;
+  document.getElementById('btnReset').disabled = false;
+  document.getElementById('btnSwap').disabled = false;
+  document.getElementById('btnPreview').disabled = false;
+  showToast(`✓ ${students.length}名を自動配置しました`);}
+
+function resetAssignment() {
+  if (!confirm('配置結果をリセットしますか？')) return;
+  state.assignment = {}; state.assigned = false; state.swapSource = null; state.uiMode = null;
+  refreshAllSeats(); renderStudentList(); updateStatus(); updateSteps();
+  document.getElementById('btnExport').disabled = true;
+  document.getElementById('btnReset').disabled = true;
+  document.getElementById('btnPreview').disabled = true;
+  document.getElementById('btnPrintPreview').disabled = true;
+  cancelMode();
+}
+
+// =========================================================
+// EXCEL EXPORT
+// =========================================================
+function exportExcel() {
+  if (!state.assigned) return;
+  const cls = CLASSROOMS[state.classroomId];
+  const wb = XLSX.utils.book_new();
+  const now = new Date();
+  const nowStr = now.toLocaleString('ja-JP');
+  const orderLabel = {
+    random: 'ランダム', id: '学籍番号順', score: '成績順',
+    seat_col_asc: '左前→右後ろ', seat_col_desc: '右前→左後ろ',
+    seat_row_asc: '左→右・前→後ろ', seat_row_desc: '右→左・前→後ろ'
+  }[state.orderMode] || state.orderMode;
+
+  // Sheet 1: 配置結果
+  const rows1 = [['学籍番号', '氏名', ...(state.hasScore ? ['成績'] : []), '行', '列', '座席ID', '座席番号（通し）', '配置方法', '出力日時', '教室名']];
+  for (const [seatId, si] of Object.entries(state.assignment)) {
+    const s = state.students[si];
+    const seat = state.seats[seatId];
+    rows1.push([s.id, s.name.replace(/（[^）]*）/g,'').trim(), ...(state.hasScore ? [s.score ?? ''] : []), seat.row, seat.col, seatId, seat.seatNum ?? '', orderLabel, nowStr, cls.name]);
+  }
+  const ws1 = XLSX.utils.aoa_to_sheet(rows1);
+  XLSX.utils.book_append_sheet(wb, ws1, '配置結果');
+
+  // Sheet 2: 座席表（教員用）
+  const ws2 = XLSX.utils.aoa_to_sheet(buildSeatMapSheet(true));
+  XLSX.utils.book_append_sheet(wb, ws2, '座席表_教員用');
+
+  // Sheet 3: 座席表（学生掲示用）
+  const ws3 = XLSX.utils.aoa_to_sheet(buildSeatMapSheet(false));
+  XLSX.utils.book_append_sheet(wb, ws3, '座席表_学生掲示用');
+
+  // Sheet 4: 教室設定
+  const rows4 = [['教室名', '座席ID', 'エリア', '列', '行', '使用可否']];
+  for (const [seatId, seat] of Object.entries(state.seats)) {
+    rows4.push([cls.name, seatId, seat.section, seat.col, seat.row, seat.enabled ? '使用可' : '使用不可']);
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows4), '教室設定');
+
+  // The restore sheet holds the complete app state, including disabled and empty seats.
+  const restoreRows = [
+    ['KKU座席指定復元データ', 1],
+    ['教室ID', state.classroomId],
+    ['授業名', document.getElementById('courseName').value.trim()],
+    ['成績列あり', state.hasScore ? 1 : 0],
+    ['並び順', state.orderMode],
+    ['空席配置', state.emptyMode],
+    ['学生数', state.students.length],
+    ['座席数', Object.keys(state.seats).length],
+    ['種別', '番号または座席ID', '氏名または使用可否', '成績または学生番号']
+  ];
+  state.students.forEach((student, index) =>
+    restoreRows.push(['学生', index, student.id, student.name, student.score ?? '']));
+  Object.entries(state.seats).forEach(([seatId, seat]) =>
+    restoreRows.push(['座席', seatId, seat.enabled ? 1 : 0,
+      state.assignment[seatId] === undefined ? '' : state.assignment[seatId]]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(restoreRows), '復元データ');
+
+  const course = document.getElementById('courseName').value.trim() || '授業名未入力';
+  const safeCourse = course.replace(/[\/:*?"<>|\x00-\x1f]/g, '_').replace(/[. ]+$/g, '').slice(0, 80) || '授業名未入力';
+  const date = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('');
+  const fname = `${date}_${safeCourse}_座席指定.xlsx`;
+  XLSX.writeFile(wb, fname);
+  showToast('📊 Excelファイルを出力しました');
+}
+
+function buildSeatMapSheet(isTeacher) {
+  const cls = CLASSROOMS[state.classroomId];
+  const seatStudent = {};
+  for (const [seatId, si] of Object.entries(state.assignment)) seatStudent[seatId] = state.students[si];
+  const data = [];
+  data.push([isTeacher ? '座席表（教員用）' : '座席表（学生掲示用）', cls.name, '', new Date().toLocaleString('ja-JP')]);
+  data.push([]);
+  data.push(['── 教卓・スクリーン ──']);
+  data.push([]);
+  for (const sec of cls.sections) {
+    data.push([`【${sec.name}】`]);
+    data.push(['行', ...sec.cols]);
+    for (let r = 1; r <= sec.rows; r++) {
+      const row = [r];
+      for (const col of sec.cols) {
+        const seatId = `${col}${String(r).padStart(2,'0')}`;
+        const seat = state.seats[seatId];
+        if (!seat || !seat.enabled) { row.push('×'); continue; }
+        const s = seatStudent[seatId];
+        if (!s) { row.push(seatId); continue; }
+        if (isTeacher) {
+          const clean = s.name.replace(/（[^）]*）/g,'').trim();
+          row.push(`${clean}${s.score !== null && state.hasScore ? ` (${s.score})` : ''}`);
+        } else {
+          row.push(s.id);
+        }
+      }
+      data.push(row);
+    }
+    data.push([]);
+  }
+  return data;
+}
+
+// =========================================================
+// ASSIGNMENT RESTORE
+// =========================================================
+function showRestoreAlert(type, message) {
+  const el = document.getElementById('restoreAlert');
+  el.className = `alert alert-${type}`;
+  el.textContent = message;
+}
+
+function importAssignment(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onerror = () => showRestoreAlert('error', 'ファイルを読み込めませんでした。');
+  reader.onload = event => {
+    try {
+      if (typeof XLSX === 'undefined') throw new Error('Excelライブラリを読み込めません。インターネット接続を確認してください。');
+      const wb = XLSX.read(event.target.result, { type: 'array' });
+      const ws = wb.Sheets['復元データ'];
+      if (!ws) throw new Error('復元データシートがありません。このアプリで新しく出力したExcelを選択してください。');
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (rows[0]?.[0] !== 'KKU座席指定復元データ' || Number(rows[0]?.[1]) !== 1)
+        throw new Error('対応していない復元データ形式です。');
+      const meta = Object.fromEntries(rows.slice(1, 8).map(r => [r[0], r[1]]));
+      const classroomId = String(meta['教室ID'] || '');
+      if (!Object.hasOwn(CLASSROOMS, classroomId)) throw new Error('このアプリにない教室です: ' + classroomId);
+      const studentRows = rows.slice(9).filter(r => r[0] === '学生');
+      const seatRows = rows.slice(9).filter(r => r[0] === '座席');
+      const expectedStudents = Number(meta['学生数']);
+      const expectedSeats = Number(rows[7]?.[1]);
+      if (!Number.isInteger(expectedStudents) || studentRows.length !== expectedStudents ||
+          !Number.isInteger(expectedSeats) || seatRows.length !== expectedSeats)
+        throw new Error('学生または座席データが不足しています。');
+      const students = Array(expectedStudents);
+      for (const row of studentRows) {
+        const index = Number(row[1]);
+        if (!Number.isInteger(index) || index < 0 || index >= expectedStudents ||
+            students[index] || !String(row[2]).trim() || !String(row[3]).trim())
+          throw new Error('学生データに重複または欠損があります。');
+        const score = row[4] === '' ? null : Number(row[4]);
+        if (score !== null && !Number.isFinite(score)) throw new Error('成績データが不正です。');
+        students[index] = { id: String(row[2]), name: String(row[3]), score };
+      }
+      if (students.some(s => !s)) throw new Error('学生データが不足しています。');
+      // Build the target classroom in memory before changing the current display.
+      const previousState = { ...state };
+      let templateSeats;
+      try {
+        document.getElementById('classroomSelect').value = classroomId;
+        selectClassroom();
+        templateSeats = state.seats;
+      } finally {
+        Object.assign(state, previousState);
+        document.getElementById('classroomSelect').value = previousState.classroomId || '';
+        if (previousState.classroomId) {
+          renderClassroom();
+          renderBulkPanel();
+        }
+        updateStatus();
+        updateSteps();
+      }
+      if (Object.keys(templateSeats).length !== expectedSeats)
+        throw new Error('教室の座席構成がこのアプリと一致しません。');
+      const enabled = {};
+      const assignment = {};
+      for (const row of seatRows) {
+        const seatId = String(row[1]);
+        if (!Object.hasOwn(templateSeats, seatId) || Object.hasOwn(enabled, seatId) ||
+            ![0, 1].includes(Number(row[2])))
+          throw new Error('座席データに不明な席または重複があります。');
+        enabled[seatId] = Number(row[2]) === 1;
+        if (row[3] !== '') {
+          const index = Number(row[3]);
+          if (!enabled[seatId] || !Number.isInteger(index) || index < 0 || index >= students.length ||
+              Object.values(assignment).includes(index))
+            throw new Error('配置データに重複または使用不可の席があります。');
+          assignment[seatId] = index;
+        }
+      }
+      if (Object.keys(enabled).length !== expectedSeats)
+        throw new Error('座席データが不足しています。');
+      if (Object.keys(assignment).length !== students.length)
+        throw new Error('学生の配置が不足しています。');
+      const order = String(meta['並び順']);
+      const empty = String(meta['空席配置']);
+      if (!['random','id','score','seat_col_asc','seat_col_desc','seat_row_asc','seat_row_desc'].includes(order) ||
+          !['front','back','spread'].includes(empty))
+        throw new Error('配置設定が不正です。');
+
+      // All validation passed: apply the restored state.
+      document.getElementById('classroomSelect').value = classroomId;
+      selectClassroom();
+      Object.entries(enabled).forEach(([id, value]) => { state.seats[id].enabled = value; });
+      state.students = students;
+      state.hasScore = Number(meta['成績列あり']) === 1;
+      state.assignment = assignment;
+      state.assigned = true;
+      document.getElementById('courseName').value = String(meta['授業名'] || '');
+      document.getElementById('csvIcon').textContent = '✅';
+      document.getElementById('csvText').textContent = `${file.name} から ${students.length}名を復元`;
+      document.getElementById('csvDropZone').classList.add('file-loaded');
+      updateScoreOption();
+      setOrder(order);
+      setEmpty(empty);
+      renderClassroom();
+      renderBulkPanel();
+      renderStudentList();
+      updateStatus();
+      updateSteps();
+      ['btnExport','btnReset','btnSwap','btnPreview','btnExportFromPreview','btnPrintPreview']
+        .forEach(id => { document.getElementById(id).disabled = false; });
+      showRestoreAlert('info', `${file.name} から座席配置を復元しました。`);
+      showToast('✓ 座席配置を復元しました');
+    } catch (error) {
+      showRestoreAlert('error', error.message);
+    } finally {
+      input.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// =========================================================
+// UI MODES
+// =========================================================
+function toggleBackSection() {
+  const cls = CLASSROOMS[state.classroomId];
+  if (!cls) return;
+  const backSecs = cls.sections.filter(s => !s.defaultEnabled);
+  if (!backSecs.length) return;
+
+  // Check if any back-section seat is currently disabled
+  const backSeats = Object.values(state.seats).filter(s =>
+    backSecs.some(sec => sec.id === s.section)
+  );
+  const anyOff = backSeats.some(s => !s.enabled);
+
+  // If any are off → turn all on; if all on → turn all off
+  const newEnabled = anyOff;
+  for (const seat of backSeats) {
+    seat.enabled = newEnabled;
+    if (!newEnabled && state.assignment[seat.id] !== undefined) {
+      delete state.assignment[seat.id];
+    }
+  }
+  refreshAllSeats();
+  refreshAllChips();
+  updateStatus();
+  updateBackSectionButton();
+}
+
+function updateBackSectionButton() {
+  const cls = CLASSROOMS[state.classroomId];
+  if (!cls) return;
+  const backSecs = cls.sections.filter(s => !s.defaultEnabled);
+  const backSeats = Object.values(state.seats).filter(s =>
+    backSecs.some(sec => sec.id === s.section)
+  );
+  const anyOff = backSeats.some(s => !s.enabled);
+  const btn = document.getElementById('btnBackSection');
+  if (anyOff) {
+    btn.textContent = '🔲 後方エリアをON';
+    btn.style.background = '';
+    btn.style.color = '';
+  } else {
+    btn.textContent = '✅ 後方エリアをOFF';
+    btn.style.background = 'var(--accent-bg)';
+    btn.style.color = 'var(--accent)';
+  }
+}
+
+function toggleSeatMode() {
+  if (state.uiMode === 'toggle') { cancelMode(); return; }
+  cancelMode();
+  state.uiMode = 'toggle'; state.swapSource = null;
+  document.getElementById('modeBar').classList.remove('hidden');
+  document.getElementById('modeBarText').textContent = '座席をクリックして使用可 / 使用不可を切り替え。終了するにはキャンセルをクリック。';
+  document.getElementById('btnSeatToggle').textContent = '✕ 切替モード終了';
+}
+
+function toggleSwapMode() {
+  if (state.uiMode === 'swap') { cancelMode(); return; }
+  cancelMode();
+  state.uiMode = 'swap'; state.swapSource = null;
+  document.getElementById('modeBar').classList.remove('hidden');
+  document.getElementById('modeBarText').textContent = '1席目に学生の席、2席目に入れ替え先をクリックしてください。空席なら移動します。';
+  document.getElementById('btnSwap').textContent = '✕ 入替モード終了';
+  document.getElementById('btnSwap').classList.remove('btn-secondary');
+  document.getElementById('btnSwap').classList.add('btn-primary');
+}
+
+function cancelMode() {
+  if (state.swapSource) { const p = state.swapSource; state.swapSource = null; refreshSeat(p); }
+  state.uiMode = null;
+  document.getElementById('modeBar').classList.add('hidden');
+  document.getElementById('btnSeatToggle').textContent = '✎ 座席クリックで切替';
+  document.getElementById('btnSwap').textContent = '⇄ 2席をクリックして入れ替え';
+  document.getElementById('btnSwap').classList.remove('btn-primary');
+  document.getElementById('btnSwap').classList.add('btn-secondary');
+}
+
+// =========================================================
+// ORDER / EMPTY
+// =========================================================
+function setOrder(val) {
+  if (val === 'score' && !state.hasScore) return;
+  state.orderMode = val;
+  document.querySelectorAll('#orderGroup .radio-item').forEach(el => {
+    el.classList.toggle('active', el.querySelector('input').value === val);
+  });
+}
+
+function setEmpty(val) {
+  state.emptyMode = val;
+  document.querySelectorAll('#emptyGroup .radio-item').forEach(el => {
+    el.classList.toggle('active', el.querySelector('input').value === val);
+  });
+}
+
+// =========================================================
+// STATUS
+// =========================================================
+function updateStatus() {
+  const seats = getEnabledSeats().length;
+  const students = state.students.length;
+  const diff = seats - students;
+
+  document.getElementById('statusSeats').querySelector('.status-value').textContent = seats || '—';
+  document.getElementById('statusStudents').querySelector('.status-value').textContent = students || '—';
+  document.getElementById('statusSeats').className = 'status-item highlight';
+  document.getElementById('statusStudents').className = 'status-item';
+
+  const alertEl = document.getElementById('capacityAlert');
+  if (!state.classroomId || !students) {
+    document.getElementById('statusDiff').querySelector('.status-value').textContent = '—';
+    document.getElementById('statusDiff').className = 'status-item';
+    alertEl.classList.add('hidden'); return;
+  }
+  if (diff < 0) {
+    document.getElementById('statusDiff').querySelector('.status-value').textContent = `${Math.abs(diff)}不足`;
+    document.getElementById('statusDiff').className = 'status-item error';
+    alertEl.className = 'alert alert-error';
+    alertEl.innerHTML = `<strong>⛔ エラー：座席不足</strong>有効座席数が学生数より少ないため配置を実行できません。<br>有効座席数: <strong>${seats}席</strong>　学生数: <strong>${students}名</strong>　不足: <strong>${Math.abs(diff)}席</strong>`;
+    alertEl.classList.remove('hidden');
+    document.getElementById('btnAssign').disabled = true;
+    document.getElementById('btnExport').disabled = true;
+  } else {
+    document.getElementById('statusDiff').querySelector('.status-value').textContent = diff === 0 ? '0' : `+${diff}`;
+    document.getElementById('statusDiff').className = diff === 0 ? 'status-item highlight' : 'status-item warn';
+    if (diff > 0) {
+      alertEl.className = 'alert alert-info';
+      alertEl.innerHTML = `ℹ️ ${diff}席空きます`;
+      alertEl.classList.remove('hidden');
+    } else { alertEl.classList.add('hidden'); }
+    document.getElementById('btnAssign').disabled = !(state.classroomId && students);
+  }
+}
+
+// =========================================================
+// STEPS
+// =========================================================
+function updateSteps() {
+  const s = [state.classroomId != null, state.classroomId != null, state.students.length > 0, state.students.length > 0, state.assigned, state.assigned];
+  const next = s.findIndex(v => !v) + 1;
+  document.querySelectorAll('.step-item').forEach(el => {
+    const n = parseInt(el.dataset.step);
+    el.className = 'step-item ' + (s[n-1] ? 'done' : n === next ? 'active' : 'pending');
+  });
+}
+
+// =========================================================
+// TABS
+// =========================================================
+function switchTab(tab) {
+  const tabs = ['seats','students','preview'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', tabs[i] === tab));
+  document.getElementById('tabSeats').classList.toggle('hidden', tab !== 'seats');
+  document.getElementById('tabStudents').classList.toggle('hidden', tab !== 'students');
+  document.getElementById('tabPreview').classList.toggle('hidden', tab !== 'preview');
+  if (tab === 'students') renderStudentList();
+  if (tab === 'preview') renderPreview();
+}
+
+function openPreview() {
+  switchTab('preview');
+  // Enable PDF button once preview is open and assigned
+  if (state.assigned) {
+    document.getElementById('btnPrintPreview').disabled = false;
+  }
+}
+
+function printPreview() {
+  if (!state.assigned) return;
+  // Ensure preview is rendered first
+  renderPreview();
+  // Small delay for render to complete, then print
+  setTimeout(() => window.print(), 150);
+}
+
+// =========================================================
+// PREVIEW
+// =========================================================
+let previewVersion = 1;
+
+function setPreviewVersion(v) {
+  previewVersion = v;
+  document.getElementById('pvBtn1').style.cssText = v===1 ? 'background:var(--accent);color:white' : '';
+  document.getElementById('pvBtn1').className = 'btn btn-sm ' + (v===1 ? '' : 'btn-secondary');
+  document.getElementById('pvBtn2').style.cssText = v===2 ? 'background:var(--accent);color:white' : '';
+  document.getElementById('pvBtn2').className = 'btn btn-sm ' + (v===2 ? '' : 'btn-secondary');
+  renderPreview();
+}
+
+function extractFurigana(name) {
+  // Extract content inside （）as furigana
+  const m = name.match(/（([^）]*)）/);
+  return m ? m[1] : '';
+}
+
+function cleanName(name) {
+  return name.replace(/（[^）]*）/g,'').replace(/\([^)]*\)/g,'').trim();
+}
+
+function renderPreview() {
+  const container = document.getElementById('previewContainer');
+  const notice = document.getElementById('previewNotice');
+
+  if (!state.assigned) {
+    notice.classList.remove('hidden');
+    container.innerHTML = '';
+    document.getElementById('btnExportFromPreview').disabled = true;
+    return;
+  }
+  notice.classList.add('hidden');
+  document.getElementById('btnExportFromPreview').disabled = false;
+  document.getElementById('btnPrintPreview').disabled = false;
+
+  const cls = CLASSROOMS[state.classroomId];
+  const seatStudent = {};
+  for (const [seatId, si] of Object.entries(state.assignment)) seatStudent[seatId] = state.students[si];
+  const v = previewVersion;
+
+  container.innerHTML = '';
+
+  // Title bar
+  const titleRow = document.createElement('div');
+  titleRow.style.cssText = 'display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap';
+  titleRow.innerHTML = `
+    <span style="font-size:15px;font-weight:700">${cls.name}</span>
+    <span style="font-size:12px;color:var(--text3)">${new Date().toLocaleString('ja-JP')} 出力</span>
+    <span style="font-size:11px;background:var(--accent-bg);color:var(--accent);padding:2px 8px;border-radius:12px;font-weight:600">
+      ${v===1 ? 'Ver.1：座席番号 + 学籍番号' : 'Ver.2：座席番号 + 学籍番号 + ふりがな + 氏名'}
+    </span>
+  `;
+  container.appendChild(titleRow);
+
+  const podium = document.createElement('div');
+  podium.className = 'preview-podium';
+  podium.textContent = '🎤 教卓・スクリーン（前方）';
+  container.appendChild(podium);
+
+  for (const sec of cls.sections) {
+    const secLbl = document.createElement('div');
+    secLbl.className = 'preview-section-label';
+    secLbl.textContent = sec.name;
+    container.appendChild(secLbl);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'preview-grid-wrap';
+    const grid = document.createElement('div');
+    grid.className = 'preview-grid';
+
+    if (cls.tableLayout) {
+      const maxGS = Math.max(...sec.tables.map(t => t.groupSize));
+      const H = v === 1 ? '44px' : '70px';
+
+      // Col headers (tableId labels)
+      const hdr = document.createElement('div'); hdr.className = 'preview-row';
+      hdr.appendChild(Object.assign(document.createElement('div'), {className:'preview-row-lbl'}));
+      for (let ci = 0; ci < sec.tables.length; ci++) {
+        const tbl = sec.tables[ci];
+        const h = document.createElement('div');
+        h.className = 'preview-col-hdr'; h.style.fontSize = '9px';
+        h.textContent = tbl.tableId;
+        hdr.appendChild(h);
+        if (sec.colGapsAfter && sec.colGapsAfter.includes(ci))
+          hdr.appendChild(Object.assign(document.createElement('div'), {className:'preview-gap'}));
+      }
+      grid.appendChild(hdr);
+
+      for (let r = 1; r <= maxGS; r++) {
+        const row = document.createElement('div'); row.className = 'preview-row';
+        const rlbl = document.createElement('div'); rlbl.className = 'preview-row-lbl'; rlbl.textContent = r;
+        row.appendChild(rlbl);
+        for (let ci = 0; ci < sec.tables.length; ci++) {
+          const tbl = sec.tables[ci];
+          const seatNumInCol = tbl.groupIdx * tbl.groupSize + r;
+          const seatId = `${tbl.col}${seatNumInCol}`;
+          const seatData = state.seats[seatId];
+          const box = document.createElement('div'); box.style.height = H;
+          if (!seatData || !seatData.enabled) {
+            box.className = seatData ? 'pv-seat disabled-pv' : 'pv-seat disabled-pv';
+            if (!seatData) box.style.visibility = 'hidden';
+          } else {
+            const s = seatStudent[seatId];
+            if (!s) { box.className = 'pv-seat empty'; }
+            else {
+              box.className = 'pv-seat';
+              const sid = document.createElement('div');
+              sid.className = v===1 ? 'pv-sid-lg' : 'pv-sid-md'; sid.textContent = s.id;
+              box.appendChild(sid);
+              if (v === 2) {
+                const fg = document.createElement('div'); fg.className = 'pv-furigana';
+                fg.textContent = extractFurigana(s.name) || '—'; box.appendChild(fg);
+                const nm = document.createElement('div'); nm.className = 'pv-name';
+                nm.textContent = cleanName(s.name); box.appendChild(nm);
+              }
+            }
+          }
+          row.appendChild(box);
+          if (sec.colGapsAfter && sec.colGapsAfter.includes(ci))
+            row.appendChild(Object.assign(document.createElement('div'), {className:'preview-gap', style:'border-left:2px dashed var(--border2)'}));
+        }
+        grid.appendChild(row);
+      }
+    } else {
+      // Standard grid preview
+      const hdrRow = document.createElement('div');
+      hdrRow.className = 'preview-row';
+      hdrRow.appendChild(Object.assign(document.createElement('div'), {className:'preview-row-lbl'}));
+      for (let ci = 0; ci < sec.cols.length; ci++) {
+        const h = document.createElement('div');
+        h.className = 'preview-col-hdr'; h.textContent = sec.cols[ci];
+        hdrRow.appendChild(h);
+        if (sec.colGapsAfter && sec.colGapsAfter.includes(ci))
+          hdrRow.appendChild(Object.assign(document.createElement('div'), {className:'preview-gap'}));
+      }
+      grid.appendChild(hdrRow);
+
+      for (let r = 1; r <= sec.rows; r++) {
+        const hasSeats = sec.cols.some(col => !!state.seats[`${col}${String(r).padStart(2,'0')}`]);
+        if (!hasSeats) continue;
+
+        const row = document.createElement('div'); row.className = 'preview-row';
+        const rlbl = document.createElement('div'); rlbl.className = 'preview-row-lbl'; rlbl.textContent = r;
+        row.appendChild(rlbl);
+
+        for (let ci = 0; ci < sec.cols.length; ci++) {
+          const col = sec.cols[ci];
+          const seatId = `${col}${String(r).padStart(2,'0')}`;
+          const seatData = state.seats[seatId];
+          const box = document.createElement('div');
+
+          if (!seatData) {
+            box.className = 'pv-seat disabled-pv'; box.style.visibility = 'hidden';
+            box.style.height = v === 1 ? '44px' : '70px';
+            row.appendChild(box);
+            if (sec.colGapsAfter && sec.colGapsAfter.includes(ci))
+              row.appendChild(Object.assign(document.createElement('div'), {className:'preview-gap', style:'border-left:2px dashed var(--border2)'}));
+            continue;
+          }
+
+          if (!seatData.enabled) {
+            box.className = 'pv-seat disabled-pv';
+          } else {
+            const s = seatStudent[seatId];
+            if (!s) { box.className = 'pv-seat empty'; }
+            else {
+              box.className = 'pv-seat';
+              const sid = document.createElement('div');
+              sid.className = v===1 ? 'pv-sid-lg' : 'pv-sid-md'; sid.textContent = s.id;
+              box.appendChild(sid);
+              if (v === 2) {
+                const fg = document.createElement('div'); fg.className = 'pv-furigana';
+                fg.textContent = extractFurigana(s.name) || '—'; box.appendChild(fg);
+                const nm = document.createElement('div'); nm.className = 'pv-name';
+                nm.textContent = cleanName(s.name); box.appendChild(nm);
+              }
+            }
+          }
+          box.style.height = v === 1 ? '44px' : '70px';
+          row.appendChild(box);
+          if (sec.colGapsAfter && sec.colGapsAfter.includes(ci))
+            row.appendChild(Object.assign(document.createElement('div'), {className:'preview-gap', style:'border-left:2px dashed var(--border2)'}));
+        }
+        grid.appendChild(row);
+      }
+    }
+
+    wrap.appendChild(grid);
+    container.appendChild(wrap);
+  }
+
+  // Legend
+  const legend = document.createElement('div');
+  legend.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;padding-top:12px;border-top:1px solid var(--border2);font-size:11px;color:var(--text2)';
+  legend.innerHTML = `
+    <div style="display:flex;align-items:center;gap:5px"><div style="width:14px;height:14px;border-radius:3px;border:1.5px solid var(--seat-available-border);background:var(--seat-available)"></div>配置済</div>
+    <div style="display:flex;align-items:center;gap:5px"><div style="width:14px;height:14px;border-radius:3px;border:1.5px solid var(--border2);background:var(--surface2)"></div>空席</div>
+    <div style="display:flex;align-items:center;gap:5px"><div style="width:14px;height:14px;border-radius:3px;border:1.5px solid var(--seat-disabled-border);background:var(--seat-disabled)"></div>使用不可</div>
+  `;
+  container.appendChild(legend);
+}
+
+
+
+function getStudentAtSeat(seatId) {
+  const si = state.assignment[seatId];
+  return si !== undefined ? state.students[si] : null;
+}
+
+// =========================================================
+// TOAST
+// =========================================================
+let toastTimer;
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div'); t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--accent);color:white;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2);transition:opacity .3s;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+</script>
+</body>
+</html>

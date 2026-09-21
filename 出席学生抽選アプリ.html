@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎯 出席確認ルーレット</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Black+Han+Sans&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a12;
+    --panel: #11111f;
+    --neon-cyan: #00f5ff;
+    --neon-pink: #ff006e;
+    --neon-yellow: #ffe600;
+    --neon-green: #39ff14;
+    --border: rgba(0,245,255,0.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(0,245,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none; z-index:0;
+  }
+  body::after {
+    content:'';
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px);
+    pointer-events:none; z-index:0;
+  }
+  .container {
+    position:relative; z-index:1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  .header { text-align:center; margin-bottom:40px; }
+  .sys-tag { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--neon-cyan); letter-spacing:4px; opacity:.6; margin-bottom:10px; }
+  h1 { font-family:'Black Han Sans',sans-serif; font-size:clamp(2rem,6vw,3.6rem); color:#fff; letter-spacing:-1px; line-height:1; text-shadow:0 0 30px rgba(0,245,255,.5); margin-bottom:6px; }
+  h1 span { color:var(--neon-cyan); text-shadow:0 0 20px var(--neon-cyan),0 0 60px rgba(0,245,255,.4); }
+
+  /* Upload */
+  .upload-section { margin-bottom:28px; }
+  .drop-zone {
+    border:2px dashed rgba(0,245,255,.25);
+    border-radius:12px;
+    padding: 14px 22px;
+    text-align:center;
+    cursor:pointer;
+    transition: all .25s;
+    background: rgba(0,245,255,.02);
+    position:relative;
+  }
+  .drop-zone:hover, .drop-zone.drag { border-color:var(--neon-cyan); background:rgba(0,245,255,.06); }
+  .drop-zone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; z-index:2; }
+  .drop-icon { font-size:20px; margin-right:8px; display:inline; vertical-align:middle; }
+  .drop-main { display:inline; font-family:'Black Han Sans',sans-serif; font-size:15px; color:#fff; vertical-align:middle; }
+  .drop-sub  { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(255,255,255,.28); letter-spacing:1px; margin-top:4px; }
+  .drop-zone.loaded { border-style:solid; border-color:rgba(57,255,20,.35); background:rgba(57,255,20,.03); cursor:default; }
+  .loaded-info { display:none; align-items:center; justify-content:space-between; gap:14px; flex-wrap:nowrap; }
+  .loaded-left { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+  .loaded-icon { font-size:18px; flex-shrink:0; }
+  .loaded-filename { font-family:'Share Tech Mono',monospace; font-size:11px; color:rgba(255,255,255,.4); letter-spacing:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:300px; }
+  .drop-default { transition:opacity .2s; }
+  .drop-zone.loaded .drop-default { display:none; }
+  .drop-zone.loaded .loaded-info  { display:flex; }
+  .reload-btn {
+    flex-shrink:0; background:transparent;
+    border:1px solid rgba(255,255,255,.2); color:rgba(255,255,255,.5);
+    font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:2px;
+    padding:4px 12px; border-radius:4px; cursor:pointer; transition:all .2s; position:relative; z-index:3;
+    white-space:nowrap;
+  }
+  .reload-btn:hover { border-color:rgba(255,255,255,.4); color:rgba(255,255,255,.9); }
+  .parse-error {
+    display:none; background:rgba(255,0,110,.08); border:1px solid rgba(255,0,110,.3);
+    border-radius:8px; padding:10px 16px; margin-top:10px;
+    font-family:'Share Tech Mono',monospace; font-size:12px; color:#ff6b9d; letter-spacing:1px;
+  }
+  /* Info bar: subject + date large display */
+  .info-bar {
+    display:none; align-items:stretch; margin-top:12px;
+    background:linear-gradient(135deg,rgba(0,245,255,.05),rgba(255,0,110,.05));
+    border:1px solid var(--border); border-radius:10px; overflow:hidden;
+  }
+  .info-bar.visible { display:flex; }
+  .info-cell { flex:1; text-align:center; padding:16px 24px; }
+  .info-cell + .info-cell { border-left:1px solid var(--border); }
+  .info-label { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(255,255,255,.3); letter-spacing:3px; margin-bottom:8px; }
+  .info-value { font-family:'Black Han Sans',sans-serif; font-size:clamp(1.4rem,3vw,2rem); letter-spacing:1px; line-height:1; }
+  .info-value.subject { color:#fff; }
+  .info-value.date    { color:var(--neon-cyan); text-shadow:0 0 18px rgba(0,245,255,.45); }
+  .date-badge {
+    display:inline-block;
+    background:linear-gradient(135deg,rgba(0,245,255,.06),rgba(255,0,110,.06));
+    border:1px solid var(--border); border-radius:4px;
+    padding:5px 14px; font-family:'Share Tech Mono',monospace;
+    font-size:11px; color:rgba(255,255,255,.25); margin-top:12px; letter-spacing:1px;
+  }
+  .date-badge.hidden { display:none; }
+
+  /* How-to box */
+  .howto-box {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(0,245,255,.12);
+    border-left: 3px solid var(--neon-cyan);
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .howto-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,.45);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .howto-app {
+    background: rgba(0,245,255,.15);
+    color: var(--neon-cyan);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: 2px;
+  }
+  .howto-steps {
+    list-style: none;
+    counter-reset: step;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 0;
+    flex-direction: column;
+    padding: 0;
+  }
+  .howto-steps li {
+    counter-increment: step;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(255,255,255,.6);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    padding: 2px 0;
+  }
+  .howto-steps li::before {
+    content: counter(step);
+    background: rgba(0,245,255,.12);
+    color: var(--neon-cyan);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .ht-app   { color: var(--neon-cyan); font-weight: 700; }
+  .ht-arrow { color: rgba(255,255,255,.25); }
+  .ht-em    { color: #fff; font-weight: 700; }
+  .ht-badge {
+    display: inline-block;
+    background: rgba(255,230,0,.12);
+    color: var(--neon-yellow);
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,230,0,.25);
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  /* Stage */
+  .stage {
+    background:var(--panel); border:1px solid var(--border); border-radius:16px;
+    padding:50px 40px; text-align:center; margin-bottom:28px;
+    position:relative; overflow:hidden; min-height:320px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    box-shadow:0 0 60px rgba(0,245,255,.05),inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .stage::before {
+    content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%;
+    background:radial-gradient(ellipse at center,rgba(0,245,255,.03) 0%,transparent 60%);
+    pointer-events:none;
+  }
+  .count-badge { position:absolute; top:18px; right:20px; font-family:'Share Tech Mono',monospace; font-size:11px; color:rgba(255,255,255,.3); letter-spacing:1px; }
+  .count-num   { color:var(--neon-cyan); font-size:14px; }
+  .phase-text  { position:absolute; top:16px; left:24px; font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:3px; color:rgba(255,255,255,.2); }
+  .phase-text.rolling   { color:var(--neon-pink);   animation:blink .4s infinite; }
+  .phase-text.narrowing { color:var(--neon-yellow); animation:blink .8s infinite; }
+  .phase-text.done      { color:var(--neon-green); }
+  .progress-wrap { position:absolute; bottom:0; left:0; right:0; height:3px; background:rgba(255,255,255,.05); }
+  .progress-bar  { height:100%; background:linear-gradient(90deg,var(--neon-cyan),var(--neon-pink)); transition:width .1s linear; box-shadow:0 0 8px var(--neon-cyan); }
+
+  .idle-state { display:flex; flex-direction:column; align-items:center; }
+  .idle-icon  { font-size:60px; margin-bottom:16px; opacity:.3; }
+  .idle-text  { font-family:'Share Tech Mono',monospace; color:rgba(255,255,255,.2); font-size:14px; letter-spacing:3px; }
+  .idle-hint  { font-family:'Share Tech Mono',monospace; color:rgba(255,255,255,.12); font-size:11px; letter-spacing:2px; margin-top:8px; }
+
+  .rolling-display { width:100%; max-width:560px; }
+  .label-row { display:flex; justify-content:center; gap:20px; margin-bottom:20px; }
+  .label { font-family:'Share Tech Mono',monospace; font-size:11px; color:rgba(255,255,255,.3); letter-spacing:3px; }
+  .name-box {
+    background:rgba(0,0,0,.4); border:2px solid rgba(0,245,255,.2);
+    border-radius:10px; padding:20px 30px; margin-bottom:14px;
+    position:relative; overflow:hidden;
+  }
+  .name-box::after {
+    content:''; position:absolute; left:0; right:0; top:0; height:1px;
+    background:linear-gradient(90deg,transparent,var(--neon-cyan),transparent);
+    opacity:0; transition:opacity .3s;
+  }
+  .name-box.active::after { opacity:1; }
+  .rolling-id   { font-family:'Share Tech Mono',monospace; font-size:15px; color:var(--neon-cyan); letter-spacing:4px; margin-bottom:8px; min-height:22px; }
+  .rolling-name { font-family:'Black Han Sans',sans-serif; font-size:clamp(1.8rem,5vw,3rem); color:#fff; min-height:56px; line-height:1.1; }
+  .rolling-kana { font-size:13px; color:rgba(255,255,255,.45); margin-top:4px; font-family:'Share Tech Mono',monospace; letter-spacing:2px; min-height:20px; }
+  .status-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:20px; font-size:12px; font-family:'Share Tech Mono',monospace; letter-spacing:1px; margin-top:8px; font-weight:bold; }
+  .status-chip.present { background:rgba(57,255,20,.1); border:1px solid rgba(57,255,20,.4); color:var(--neon-green); }
+  .status-chip.late    { background:rgba(255,230,0,.1);  border:1px solid rgba(255,230,0,.4); color:var(--neon-yellow); }
+  .dot { width:7px; height:7px; border-radius:50%; background:currentColor; animation:blink 1s infinite; }
+  .msg { font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:2px; margin-top:12px; min-height:18px; color:rgba(255,255,255,.4); }
+  .tension-row { display:flex; align-items:center; gap:12px; margin-top:16px; justify-content:center; }
+  .tension-label { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(255,255,255,.3); letter-spacing:2px; }
+  .tension-track { width:120px; height:6px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden; }
+  .tension-fill  { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--neon-green),var(--neon-yellow),var(--neon-pink)); width:0%; transition:width .08s ease; }
+  .beats { display:flex; gap:6px; margin-top:14px; justify-content:center; }
+  .beat  { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.1); transition:background .05s,transform .05s; }
+  .beat.hit { background:var(--neon-cyan); transform:scale(1.5); box-shadow:0 0 8px var(--neon-cyan); }
+
+  @keyframes winnerReveal {
+    0%   { transform:scale(.7) rotateY(-30deg); opacity:0; filter:blur(10px); }
+    60%  { transform:scale(1.05) rotateY(5deg); opacity:1; filter:blur(0); }
+    100% { transform:scale(1) rotateY(0deg);    opacity:1; filter:blur(0); }
+  }
+  @keyframes borderPulse {
+    0%,100% { border-color:rgba(0,245,255,.3); box-shadow:none; }
+    50%     { border-color:var(--neon-cyan); box-shadow:0 0 30px rgba(0,245,255,.4),inset 0 0 20px rgba(0,245,255,.05); }
+  }
+  .winner-animate .name-box { animation:winnerReveal .7s cubic-bezier(.34,1.56,.64,1) forwards, borderPulse 1.5s ease-in-out .7s infinite; }
+  .winner-animate .rolling-name { color:var(--neon-yellow); text-shadow:0 0 20px rgba(255,230,0,.6); }
+
+  .particle { position:absolute; border-radius:2px; pointer-events:none; animation:fall linear forwards; }
+  @keyframes fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(400px) rotate(720deg);opacity:0} }
+
+  /* Buttons */
+  .btn-wrap { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; margin-bottom:28px; }
+  .btn { font-family:'Black Han Sans',sans-serif; font-size:17px; letter-spacing:2px; border:none; border-radius:8px; padding:15px 46px; cursor:pointer; transition:all .2s; }
+  .btn-primary { background:linear-gradient(135deg,var(--neon-cyan),#0099ff); color:#000; box-shadow:0 0 30px rgba(0,245,255,.3); }
+  .btn-primary:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 0 50px rgba(0,245,255,.5); }
+  .btn-primary:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+  .btn-secondary { background:transparent; color:rgba(255,255,255,.5); border:1px solid rgba(255,255,255,.15); font-size:14px; padding:13px 28px; }
+  .btn-secondary:hover { border-color:rgba(255,255,255,.3); color:rgba(255,255,255,.8); }
+
+  /* List */
+  .list-section { background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .list-header  { display:flex; align-items:center; justify-content:space-between; padding:15px 24px; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; }
+  .list-title   { font-family:'Share Tech Mono',monospace; font-size:12px; color:rgba(255,255,255,.5); letter-spacing:3px; }
+  .list-count   { font-family:'Share Tech Mono',monospace; font-size:12px; color:var(--neon-cyan); }
+  .list-toggle  { color:rgba(255,255,255,.3); font-size:12px; transition:transform .3s; }
+  .list-toggle.open { transform:rotate(180deg); }
+  .list-body { display:none; padding:14px 24px; max-height:280px; overflow-y:auto; }
+  .list-body.open { display:block; }
+  .list-body::-webkit-scrollbar { width:4px; }
+  .list-body::-webkit-scrollbar-thumb { background:rgba(0,245,255,.2); border-radius:2px; }
+  .student-row { display:flex; align-items:center; gap:14px; padding:7px 8px; border-bottom:1px solid rgba(255,255,255,.04); font-size:13px; border-radius:4px; transition:background .2s; }
+  .student-row.highlight { background:rgba(255,230,0,.08); }
+  .student-id     { font-family:'Share Tech Mono',monospace; color:rgba(0,245,255,.6); font-size:11px; min-width:80px; }
+  .student-name   { color:rgba(255,255,255,.75); flex:1; }
+  .student-status { font-size:10px; padding:3px 8px; border-radius:3px; font-family:'Share Tech Mono',monospace; }
+  .s-present { background:rgba(57,255,20,.1); color:var(--neon-green); }
+  .s-late    { background:rgba(255,230,0,.1);  color:var(--neon-yellow); }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="sys-tag">ATTENDANCE ROULETTE SYSTEM v3.0</div>
+    <h1>🎯 指名<span>ルーレット</span></h1>
+  </div>
+
+  <!-- Upload Zone -->
+  <div class="upload-section">
+
+    <!-- How-to guide -->
+    <div class="howto-box">
+      <div class="howto-title">📋 ファイルの取得方法 <span class="howto-app">UNIPA</span></div>
+      <ol class="howto-steps">
+        <li><span class="ht-app">出欠管理</span> を開く</li>
+        <li><span class="ht-arrow">→</span> <span class="ht-em">授業科目</span> を選択</li>
+        <li>ページ最下部の <span class="ht-em">出欠情報（学生毎）</span> セクションへ</li>
+        <li><span class="ht-badge">Excel</span> &amp; <span class="ht-badge">ヘッダーを含む</span> にチェック → ダウンロード</li>
+      </ol>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+      <input type="file" accept=".xlsx,.xls" id="fileInput">
+
+      <div class="drop-default">
+        <span class="drop-icon">📂</span>
+        <div class="drop-main">ダウンロードした Excel をここにドロップ / クリックして選択</div>
+        <div class="drop-sub">.xlsx / .xls 対応</div>
+      </div>
+
+      <div class="loaded-info" id="loadedInfo">
+        <div class="loaded-left">
+          <span class="loaded-icon">✅</span>
+          <span class="loaded-filename" id="loadedFilename">—</span>
+        </div>
+        <button class="reload-btn" id="reloadBtn">↺ 変更</button>
+      </div>
+    </div>
+    <div class="parse-error" id="parseError"></div>
+
+    <!-- Subject + Date info bar (shown after load) -->
+    <div class="info-bar" id="infoBar">
+      <div class="info-cell">
+        <div class="info-label">SUBJECT / 科目</div>
+        <div class="info-value subject" id="infoSubject">—</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">DATE / 対象日</div>
+        <div class="info-value date" id="infoDate">—</div>
+      </div>
+    </div>
+    <div class="date-badge" id="dateBadge">📅 ファイルを読み込んでください</div>
+  </div>
+
+  <!-- Stage -->
+  <div class="stage" id="stage">
+    <div class="count-badge">対象: <span class="count-num" id="countNum">—</span> 名<span id="stageDateBadge" style="display:none;color:var(--neon-cyan);margin-left:10px;font-size:12px;letter-spacing:1px;">📅 <span id="stageDateVal"></span></span></div>
+    <div class="phase-text" id="phaseText">STANDBY</div>
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+
+    <div class="idle-state" id="idleState">
+      <span class="idle-icon">🎲</span>
+      <div class="idle-text">ボタンを押して運命を決めろ</div>
+      <div class="idle-hint" id="idleHint">まずExcelをアップロードしてください</div>
+    </div>
+
+    <div id="rollingState" style="display:none;" class="rolling-display">
+      <div class="label-row">
+        <span class="label">STUDENT ID</span>
+        <span class="label">NAME</span>
+      </div>
+      <div class="name-box active">
+        <div class="rolling-id"   id="rollingId">— — — — —</div>
+        <div class="rolling-name" id="rollingName">？？？</div>
+        <div class="rolling-kana" id="rollingKana"></div>
+      </div>
+      <div id="statusChip"></div>
+      <div class="msg" id="msg"></div>
+      <div class="tension-row">
+        <span class="tension-label">TENSION</span>
+        <div class="tension-track"><div class="tension-fill" id="tensionFill"></div></div>
+        <span class="tension-label" id="tensionLabel">▒▒▒▒▒▒</span>
+      </div>
+      <div class="beats" id="beats">
+        <div class="beat"></div><div class="beat"></div><div class="beat"></div>
+        <div class="beat"></div><div class="beat"></div><div class="beat"></div>
+        <div class="beat"></div><div class="beat"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-wrap">
+    <button class="btn btn-primary"   id="startBtn" disabled>🎰 ルーレット開始</button>
+    <button class="btn btn-secondary" id="resetBtn" style="display:none;">↺ リセット</button>
+  </div>
+
+  <div class="list-section" id="listSection" style="display:none;">
+    <div class="list-header" onclick="toggleList()">
+      <span class="list-title">📋 出席対象者リスト</span>
+      <span class="list-count"  id="listCount">—</span>
+      <span class="list-toggle" id="listToggle">▼</span>
+    </div>
+    <div class="list-body" id="listBody"></div>
+  </div>
+
+</div>
+
+<script>
+let students = [];
+let running  = false;
+let rafId    = null;
+
+const msgs = [
+  "全員の鼓動が高まっている...","運命のサイコロが転がる...","誰が選ばれるのか...","緊張の一瞬...","止まれ...止まれ...","息をのむ瞬間...","誰だ...誰だ...","神のみぞ知る...","最後の審判...","ドキドキが止まらない！"
+];
+
+/* ── File input / drag-drop wiring ── */
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const reloadBtn = document.getElementById('reloadBtn');
+
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+reloadBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  dropZone.classList.remove('loaded');
+  fileInput.style.pointerEvents = 'all';
+  fileInput.value = '';
+  students = [];
+  resetToEmpty();
+  fileInput.click();
+});
+
+dropZone.addEventListener('click', () => {
+  if (!dropZone.classList.contains('loaded')) fileInput.click();
+});
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+function resetToEmpty() {
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('listSection').style.display = 'none';
+  document.getElementById('infoBar').classList.remove('visible');
+  document.getElementById('dateBadge').classList.remove('hidden');
+  document.getElementById('stageDateBadge').style.display = 'none';
+  document.getElementById('stageDateVal').textContent = '';
+  document.getElementById('countNum').textContent = '—';
+  document.getElementById('idleHint').textContent = 'まずExcelをアップロードしてください';
+  document.getElementById('parseError').style.display = 'none';
+  resetRoulette();
+}
+
+/* ── Parse Excel ── */
+function handleFile(file) {
+  const err = document.getElementById('parseError');
+  err.style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, { type:'array', cellDates:false });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:true });
+
+      if (!data || data.length < 4) throw new Error('データが少なすぎます');
+
+      const headerRow = data[0] || [];
+
+      // Helper: convert a cell value to a YYYY/MM/DD string, or '' if not a date
+      function toDateStr(v) {
+        if (!v && v !== 0) return '';
+        const s = String(v).trim();
+        // Already formatted: 2026/01/08 or 2026-01-08
+        if (s.match(/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/)) return s.replace(/-/g, '/');
+        // Excel serial number (integer or float with no letters)
+        if (/^\d+(\.\d+)?$/.test(s)) {
+          const num = parseFloat(s);
+          if (num > 40000 && num < 60000) {
+            // Excel epoch: Dec 30 1899
+            const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+            const yyyy = d.getUTCFullYear();
+            const mm   = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const dd   = String(d.getUTCDate()).padStart(2, '0');
+            return `${yyyy}/${mm}/${dd}`;
+          }
+        }
+        return '';
+      }
+
+      // 1. Collect all date columns
+      const dateCols = [];
+      for (let c = 1; c < headerRow.length; c++) {
+        const d = toDateStr(headerRow[c]);
+        if (d) dateCols.push({ col: c, date: d });
+      }
+      if (dateCols.length === 0) throw new Error('日付列が見つかりませんでした。ファイル形式を確認してください。');
+
+      // 2. From right to left, find the first date column where ≥20% of student rows have 出/遅/欠
+      const ATTENDANCE = new Set(['出', '遅', '欠']);
+      const studentRows = data.slice(3).filter(row => String(row[4] || '').trim() !== '');
+      const threshold = Math.max(1, Math.floor(studentRows.length * 0.2));
+      let lastDateCol = -1;
+      let lastDateVal = '';
+      for (let i = dateCols.length - 1; i >= 0; i--) {
+        const c = dateCols[i].col;
+        const count = studentRows.filter(row => ATTENDANCE.has(String(row[c] || '').trim())).length;
+        if (count >= threshold) {
+          lastDateCol = c;
+          lastDateVal = dateCols[i].date;
+          break;
+        }
+      }
+      if (lastDateCol === -1) throw new Error('出席データが入っている授業日が見つかりませんでした。');
+
+      // Rows 3+ are student rows
+      const result = [];
+      for (let r = 3; r < data.length; r++) {
+        const row = data[r];
+        const id  = String(row[4] || '').trim();
+        const raw = String(row[5] || '').trim();
+        if (!id || !raw) continue;
+
+        const attendance = String(row[lastDateCol] || '').trim();
+        if (attendance !== '出' && attendance !== '遅') continue;
+
+        const kanaMatch = raw.match(/[（(]([^）)]+)[）)]/);
+        const kana = kanaMatch ? kanaMatch[1] : '';
+        const name = raw.replace(/[（(][^）)]*[）)]/, '').trim();
+        result.push({ id, name, kana, status: attendance });
+      }
+
+      if (result.length === 0) throw new Error('対象の学生（出・遅）が見つかりませんでした');
+
+      students = result;
+
+      // Extract subject name from first student row col 3
+      let subjectName = '';
+      for (let r = 3; r < data.length; r++) {
+        const v = String(data[r][3] || '').trim();
+        if (v) { subjectName = v; break; }
+      }
+
+      dropZone.classList.add('loaded');
+      fileInput.style.pointerEvents = 'none';
+      document.getElementById('loadedFilename').textContent = file.name;
+      document.getElementById('countNum').textContent = result.length;
+      document.getElementById('idleHint').textContent = 'ボタンを押して運命を決めろ';
+      document.getElementById('startBtn').disabled = false;
+      // Show info bar
+      document.getElementById('infoSubject').textContent = subjectName || '—';
+      document.getElementById('infoDate').textContent = lastDateVal;
+      document.getElementById('infoBar').classList.add('visible');
+      document.getElementById('dateBadge').classList.add('hidden');
+      document.getElementById('stageDateVal').textContent = lastDateVal;
+      document.getElementById('stageDateBadge').style.display = 'inline';
+      buildList();
+      document.getElementById('listSection').style.display = 'block';
+      resetRoulette();
+
+    } catch(ex) {
+      err.textContent = '⚠ 読み込みエラー: ' + ex.message;
+      err.style.display = 'block';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ── List ── */
+function buildList() {
+  const body = document.getElementById('listBody');
+  body.innerHTML = '';
+  students.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'student-row';
+    row.id = 'row_' + s.id;
+    const sc = s.status === '遅' ? 's-late' : 's-present';
+    const sl = s.status === '遅' ? '遅刻' : '出席';
+    row.innerHTML = `<span class="student-id">${s.id}</span><span class="student-name">${s.name}</span><span class="student-status ${sc}">${sl}</span>`;
+    body.appendChild(row);
+  });
+  document.getElementById('listCount').textContent = students.length + '名（出席・遅刻）';
+}
+
+function toggleList() {
+  document.getElementById('listBody').classList.toggle('open');
+  document.getElementById('listToggle').classList.toggle('open');
+}
+
+/* ── Confetti ── */
+function spawnConfetti() {
+  const stage  = document.getElementById('stage');
+  const colors = ['#00f5ff','#ff006e','#ffe600','#39ff14','#ff6b6b','#c77dff'];
+  for (let i = 0; i < 40; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*50}%;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${.8+Math.random()*1.2}s;animation-delay:${Math.random()*.5}s;width:${4+Math.random()*8}px;height:${4+Math.random()*8}px;`;
+    stage.appendChild(p);
+    setTimeout(() => p.remove(), 2500);
+  }
+}
+
+/* ── Roulette ── */
+function rnd(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+let lastMsgIdx = -1;
+function cycleMsg() {
+  let i; do { i = Math.floor(Math.random()*msgs.length); } while (i===lastMsgIdx);
+  lastMsgIdx = i;
+  document.getElementById('msg').textContent = msgs[i];
+}
+
+document.getElementById('startBtn').addEventListener('click', startRoulette);
+document.getElementById('resetBtn').addEventListener('click', resetRoulette);
+
+function startRoulette() {
+  if (running || students.length === 0) return;
+  running = true;
+
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('resetBtn').style.display = 'none';
+  document.getElementById('idleState').style.display = 'none';
+  document.getElementById('rollingState').style.display = 'block';
+  document.getElementById('stage').classList.remove('winner-animate');
+  document.getElementById('statusChip').innerHTML = '';
+  document.getElementById('msg').textContent = '';
+  document.getElementById('tensionFill').style.width = '0%';
+  document.getElementById('tensionLabel').textContent = '▒▒▒▒▒▒';
+  document.querySelectorAll('.beat').forEach(b => { b.classList.remove('hit'); b.style.background = ''; });
+  document.querySelectorAll('.student-row').forEach(r => r.classList.remove('highlight'));
+
+  const chosen    = students[Math.floor(Math.random()*students.length)];
+  const total     = 5500;
+  const startTime = performance.now();
+  let frameCount  = 0;
+  let beatIdx     = 0;
+  let msgTimer    = 0;
+
+  const roll = () => {
+    const elapsed  = performance.now() - startTime;
+    const progress = Math.min(elapsed / total, 1);
+    const tier     = progress < .6 ? 2 : progress < .85 ? 4 : 7;
+
+    frameCount++;
+    if (frameCount % tier === 0) {
+      const s = rnd(students);
+      document.getElementById('rollingId').textContent   = s.id;
+      document.getElementById('rollingName').textContent = s.name;
+      document.getElementById('rollingKana').textContent = s.kana;
+      const allBeats = document.querySelectorAll('.beat');
+      allBeats[beatIdx % 8].classList.remove('hit');
+      beatIdx++;
+      allBeats[beatIdx % 8].classList.add('hit');
+    }
+
+    msgTimer++;
+    if (msgTimer % 90 === 0) cycleMsg();
+
+    document.getElementById('tensionFill').style.width = (progress*100) + '%';
+    const bars = ['▒▒▒▒▒▒','░▒▒▒▒▒','░░▒▒▒▒','░░░▒▒▒','░░░░▒▒','░░░░░▒','██████'];
+    document.getElementById('tensionLabel').textContent = bars[Math.min(Math.floor(progress*6),6)];
+    document.getElementById('progressBar').style.width = (progress*100) + '%';
+
+    const pt = document.getElementById('phaseText');
+    if (progress < .55)     { pt.className='phase-text rolling';   pt.textContent='ROLLING...'; }
+    else if (progress < .9) { pt.className='phase-text narrowing'; pt.textContent='NARROWING DOWN...'; }
+    else                    { pt.className='phase-text narrowing'; pt.textContent='ALMOST...'; }
+
+    if (progress < 1) { rafId = requestAnimationFrame(roll); }
+    else              { finalize(chosen); }
+  };
+  rafId = requestAnimationFrame(roll);
+}
+
+function finalize(chosen) {
+  running = false;
+  document.getElementById('rollingId').textContent   = chosen.id;
+  document.getElementById('rollingName').textContent = chosen.name;
+  document.getElementById('rollingKana').textContent = chosen.kana;
+  const late = chosen.status === '遅';
+  document.getElementById('statusChip').innerHTML = late
+    ? `<div class="status-chip late"><div class="dot"></div>遅刻で出席</div>`
+    : `<div class="status-chip present"><div class="dot"></div>出席確認済み</div>`;
+  document.getElementById('msg').textContent = '🎉 決定！この人が当たりました！';
+  document.getElementById('tensionFill').style.width = '100%';
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('phaseText').className = 'phase-text done';
+  document.getElementById('phaseText').textContent = 'SELECTED!';
+  document.querySelectorAll('.beat').forEach(b => { b.classList.add('hit'); b.style.background='#ffe600'; });
+  document.getElementById('stage').classList.add('winner-animate');
+  spawnConfetti();
+  setTimeout(spawnConfetti, 400);
+  setTimeout(spawnConfetti, 800);
+  const row = document.getElementById('row_' + chosen.id);
+  if (row) { row.classList.add('highlight'); row.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+  document.getElementById('resetBtn').style.display = 'inline-block';
+}
+
+function resetRoulette() {
+  if (rafId) cancelAnimationFrame(rafId);
+  running = false;
+  document.querySelectorAll('.student-row').forEach(r => r.classList.remove('highlight'));
+  document.querySelectorAll('.beat').forEach(b => { b.classList.remove('hit'); b.style.background=''; });
+  document.getElementById('idleState').style.display = 'flex';
+  document.getElementById('rollingState').style.display = 'none';
+  document.getElementById('stage').classList.remove('winner-animate');
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('phaseText').className = 'phase-text';
+  document.getElementById('phaseText').textContent = 'STANDBY';
+  document.getElementById('startBtn').disabled = (students.length === 0);
+  document.getElementById('resetBtn').style.display = 'none';
+}
+</script>
+</body>
+</html>
