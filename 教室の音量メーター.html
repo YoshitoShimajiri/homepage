@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>教室の音量メーター</title>
+<style>
+:root{
+  --idle:#2B3036;
+  --z0:#1F4E5F;   /* 静か */
+  --z1:#9A6A12;   /* 少しにぎやか */
+  --z2:#A4262C;   /* うるさい */
+  --ink:#F4F6F1;
+  --dim:rgba(244,246,241,.66);
+  --line:rgba(244,246,241,.25);
+  --panel:rgba(0,0,0,.22);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--idle);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic","Meiryo",sans-serif;
+  display:flex;flex-direction:column;transition:background-color .7s ease;
+}
+body.z0{background:var(--z0)} body.z1{background:var(--z1)} body.z2{background:var(--z2)}
+@media (prefers-reduced-motion:reduce){body{transition:none}}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 24px}
+h1{font-size:17px;font-weight:600;margin:0;color:var(--dim)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+button{
+  font:inherit;font-size:15px;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;
+}
+button:hover{background:rgba(0,0,0,.35)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #FFD84D;outline-offset:2px}
+button.primary{background:var(--ink);color:#1d2226;border-color:var(--ink);font-weight:700}
+main{flex:1;display:grid;grid-template-columns:1fr auto;align-items:center;gap:4vw;padding:0 5vw;min-height:0}
+.readout .top{display:flex;align-items:center;gap:3vw;flex-wrap:wrap}
+.readout .status{flex:0 1 auto;font-size:clamp(52px,10vw,150px);font-weight:800;line-height:1.08;letter-spacing:.02em;word-break:keep-all;overflow-wrap:anywhere}
+.readout .status.long{font-size:clamp(40px,6.2vw,104px)}
+@keyframes blinkText{50%{opacity:.12}}
+@keyframes blinkBg{50%{background-color:#5E1216}}
+body.z2.blink{animation:blinkBg 1s steps(1) infinite}
+body.z2.blink .status{animation:blinkText 1s steps(1) infinite}
+.readout .num{margin-top:.2em;font-size:clamp(28px,5vw,68px);font-weight:600;font-variant-numeric:tabular-nums}
+.readout .num small{font-size:.45em;color:var(--dim);margin-left:.2em}
+.readout .ref{margin-top:.25em;font-size:clamp(18px,2.4vw,30px);min-height:1.3em}
+.readout .ref .lv{display:inline-block;border:2px solid var(--ink);border-radius:6px;padding:0 .35em;margin-right:.4em;font-weight:700}
+.readout .hint{margin-top:12px;color:var(--dim);font-size:15px;max-width:40em;line-height:1.7}
+.meterwrap{display:flex;gap:12px;align-items:stretch}
+.meter{position:relative;width:clamp(52px,6vw,90px);height:54vh;border:2px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+.meter .fill{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--ink);opacity:.88}
+.meter .peak{position:absolute;left:0;right:0;height:3px;background:#FFD84D;bottom:0;display:none}
+.meter .mark{position:absolute;left:0;right:0;border-top:2px dashed rgba(255,255,255,.75)}
+.levels{display:flex;flex-direction:column;gap:2px;min-width:15em}
+.levels .band{padding:5px 12px;border-left:5px solid transparent;border-radius:4px;color:var(--dim);font-size:14px;line-height:1.35}
+.levels .band .nm{font-size:16px;font-weight:700}
+.levels .band .rg{font-variant-numeric:tabular-nums;margin-left:.6em;font-weight:400}
+.levels .band .ex{font-size:13px}
+.levels .band.on{color:var(--ink);border-left-color:var(--ink);background:rgba(0,0,0,.22)}
+footer{padding:10px 24px 16px}
+.stats{display:flex;gap:26px;flex-wrap:wrap;align-items:baseline;font-size:15px;color:var(--dim);margin-bottom:8px}
+.stats b{color:var(--ink);font-size:20px;font-variant-numeric:tabular-nums;margin-left:6px;font-weight:700}
+.stats .rng{margin-left:auto;display:flex;gap:4px}
+.stats .rng button{font-size:13px;padding:4px 10px}
+.stats .rng button[aria-pressed="true"]{background:var(--ink);color:#1d2226}
+.histwrap{position:relative;height:26vh;min-height:150px;background:var(--panel);border-radius:10px}
+canvas{display:block;width:100%;height:100%}
+.err{background:#fff;color:#8a1c1c;padding:12px 16px;border-radius:8px;margin:0 24px;display:none;font-size:15px;line-height:1.6}
+dialog{border:none;border-radius:12px;padding:0;max-width:560px;width:calc(100% - 32px);color:#1d2226}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.dlg{padding:22px 24px}
+.dlg h2{margin:0 0 14px;font-size:20px}
+.dlg h3{margin:20px 0 8px;font-size:15px}
+.row{display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap}
+.row label{min-width:9em;font-size:14px}
+.row input[type=number]{width:6em}
+.row input[type=text]{flex:1;min-width:8em}
+.dlg input,.dlg select{font:inherit;font-size:15px;padding:5px 8px;border:1px solid #b9bfc5;border-radius:6px}
+.dlg button{color:#1d2226;background:#eef0f2;border-color:#c9ced3}
+.dlg button.primary{background:#1F4E5F;color:#fff;border-color:#1F4E5F}
+.note{font-size:13px;color:#5b636b;line-height:1.6;margin:6px 0}
+.dlg .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+@media (max-width:760px){
+  main{grid-template-columns:1fr;padding:16px 24px}
+  .meterwrap{display:block}
+  .meter{height:18px;width:100%}
+  .meter .fill{top:0;bottom:0;height:auto!important;width:0}
+  .meter .mark,.meter .peak{display:none!important}
+  .stats .rng{margin-left:0}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>教室の音量メーター</h1>
+  <div class="btns">
+    <button id="btnStart" class="primary">測定を開始</button>
+    <button id="btnReset">記録をリセット</button>
+    <button id="btnCsv">記録をCSVで保存</button>
+    <button id="btnPng">グラフを画像で保存</button>
+    <button id="btnSet">設定</button>
+    <button id="btnFull">全画面</button>
+  </div>
+</header>
+<div class="err" id="err"></div>
+<main>
+  <div class="readout">
+    <div class="top">
+      <div class="status" id="status">待機中</div>
+      <div class="levels" id="levels" aria-label="音の大きさの目安（5段階）"></div>
+    </div>
+    <div class="num"><span id="db">--</span><small>dB（15秒平均・目安）</small></div>
+    <div class="ref" id="ref"></div>
+    <div class="hint" id="hint">「測定を開始」を押すと、ブラウザがマイクの使用許可を求めます。許可すると測定が始まります。<br>キー操作：スペース＝開始/停止、F＝全画面、S＝設定</div>
+  </div>
+  <div class="meterwrap">
+    <div class="meter" id="meter">
+      <div class="fill" id="fill"></div>
+      <div class="mark" id="mark1"></div>
+      <div class="mark" id="mark2"></div>
+      <div class="peak" id="peak"></div>
+    </div>
+  </div>
+</main>
+<footer>
+  <div class="stats">
+    <div>測定時間<b id="sTime">0:00</b></div>
+    <div>平均<b id="sAvg">--</b></div>
+    <div>最大<b id="sMax">--</b></div>
+    <div id="sLoudLabel">警告の時間<b id="sLoud">0:00（0%）</b></div>
+    <div class="rng" role="group" aria-label="グラフの表示範囲">
+      <button data-r="60">1分</button><button data-r="300">5分</button><button data-r="600">10分</button><button data-r="all">全体</button>
+    </div>
+  </div>
+  <div class="histwrap"><canvas id="hist" aria-label="時刻ごとの音量のグラフ"></canvas></div>
+</footer>
+
+<dialog id="dlg">
+  <form method="dialog" class="dlg" id="setForm">
+    <h2>設定</h2>
+
+    <h3>画面の色としきい値</h3>
+    <p class="note">画面の色と大きな文字は、ここで決めた3段階で切り替わります。5段階の目安（図書館レベルなど）とは別のものです。</p>
+    <div class="row"><label for="lab0">静かなときの表示</label><input type="text" id="lab0"></div>
+    <div class="row"><label for="t1">注意（dB以上）</label><input type="number" id="t1" min="20" max="120" step="1"><input type="text" id="lab1" aria-label="注意のときの表示"></div>
+    <div class="row"><label for="t2">警告（dB以上）</label><input type="number" id="t2" min="20" max="120" step="1"><input type="text" id="lab2" aria-label="警告のときの表示"></div>
+
+    <h3>反応の速さ</h3>
+    <div class="row">
+      <label for="speed">平均化</label>
+      <select id="speed">
+        <option value="fast">速い（0.125秒）</option>
+        <option value="slow">ゆっくり（1秒）</option>
+      </select>
+    </div>
+
+    <h3>警告のしかた</h3>
+    <div class="row">
+      <label for="warnSec">警告を出すまで</label>
+      <input type="number" id="warnSec" min="1" max="600" step="1"> 秒以上、警告の音量が続いたら
+    </div>
+    <p class="note">話し声は細かく上下するので、3秒以内の短い途切れは「続いている」とみなします。静かな状態が3秒続くと警告は消え、次の警告はまた最初から数え直します。</p>
+    <div class="row">
+      <label for="alarm">警告音を鳴らす</label><input type="checkbox" id="alarm">
+      <span class="note" style="margin:0">警告が出た瞬間に1回鳴らします</span>
+    </div>
+    <div class="row">
+      <label for="blink">警告のとき点滅する</label><input type="checkbox" id="blink">
+    </div>
+    <p class="note">警告音が鳴っている間は、その音を測ってしまわないよう記録を一時的に止めます。</p>
+
+    <h3>値の合わせ込み（任意）</h3>
+    <p class="note">PCのマイクは機種ごとに感度が違うため、表示はあくまで目安です。スマートフォンの騒音計アプリなどで同じ場所の値を測り、その数値を入れて「合わせる」を押すと、表示をそろえられます。</p>
+    <div class="row">
+      <label for="calIn">基準の値（dB）</label><input type="number" id="calIn" step="0.5">
+      <button type="button" id="btnCal">いまの表示をこの値に合わせる</button>
+    </div>
+    <div class="row"><label for="offset">補正値</label><input type="number" id="offset" step="0.5"></div>
+
+    <div class="foot">
+      <button type="button" id="btnDefault">初期設定に戻す</button>
+      <button type="submit" value="ok" class="primary">閉じる</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function(){
+'use strict';
+var $ = function(id){ return document.getElementById(id); };
+
+/* ---------- 設定 ---------- */
+var DEF = { offset:100, t1:55, t2:65, speed:'fast', range:60, alarm:false, warnSec:60, blink:true,
+            labels:['静か','少しにぎやか','騒がしいので静かに'] };
+var KEY = 'classroomNoiseMeter.v2';
+var cfg = loadCfg();
+function loadCfg(){
+  var c = JSON.parse(JSON.stringify(DEF));
+  try{
+    var s = localStorage.getItem(KEY);
+    if(s){ var o = JSON.parse(s); for(var k in o){ if(k in c) c[k] = o[k]; } }
+  }catch(e){}
+  if(c.range !== 'all') c.range = parseInt(c.range, 10) || 60;
+  return c;
+}
+function saveCfg(){ try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} }
+
+/* ---------- 表示範囲 ---------- */
+var VMIN = 30, VMAX = 100;
+function frac(v){ return Math.max(0, Math.min(1, (v - VMIN) / (VMAX - VMIN))); }
+
+/* ---------- 5段階の目安（区切りは一般的な例をもとにした目安で、公的基準ではない） ---------- */
+var LEVELS = [
+  { n:1, name:'図書館レベル',   lo:null, hi:45,   ex:'図書館・静かな住宅地' },
+  { n:2, name:'事務所レベル',   lo:45,   hi:55,   ex:'静かな事務所' },
+  { n:3, name:'会話レベル',     lo:55,   hi:65,   ex:'ふつうの会話' },
+  { n:4, name:'にぎやかレベル', lo:65,   hi:80,   ex:'掃除機・騒がしい事務所' },
+  { n:5, name:'工事現場レベル', lo:80,   hi:null, ex:'地下鉄の車内・工事現場' }
+];
+function rangeText(L){
+  if(L.lo === null) return L.hi + ' dB未満';
+  if(L.hi === null) return L.lo + ' dB以上';
+  return L.lo + '〜' + L.hi + ' dB';
+}
+function levelOf(v){
+  for(var i = LEVELS.length - 1; i >= 0; i--){ if(LEVELS[i].lo === null || v >= LEVELS[i].lo) return LEVELS[i]; }
+  return LEVELS[0];
+}
+function buildLevels(){
+  var box = $('levels'); box.innerHTML = '';
+  LEVELS.forEach(function(L){
+    var d = document.createElement('div');
+    d.className = 'band'; d.dataset.n = L.n;
+    var a = document.createElement('div'); a.className = 'nm'; a.textContent = 'Lv' + L.n + ' ' + L.name;
+    var b = document.createElement('span'); b.className = 'rg'; b.textContent = rangeText(L);
+    a.appendChild(b);
+    var c = document.createElement('div'); c.className = 'ex'; c.textContent = L.ex;
+    d.appendChild(a); d.appendChild(c);
+    box.insertBefore(d, box.firstChild);   /* Lv5 を上に */
+  });
+}
+var lastLv = null;
+function showLevel(v){
+  var L = v === null ? null : levelOf(v);
+  var n = L ? L.n : null;
+  if(n === lastLv) return;
+  lastLv = n;
+  var ref = $('ref'); ref.innerHTML = '';
+  if(L){
+    var s = document.createElement('span'); s.className = 'lv'; s.textContent = 'Lv' + L.n;
+    ref.appendChild(s);
+    ref.appendChild(document.createTextNode(L.name + '（' + rangeText(L) + '）'));
+  }
+  Array.prototype.forEach.call($('levels').children, function(d){ d.classList.toggle('on', +d.dataset.n === n); });
+}
+
+/* ---------- 状態 ---------- */
+var actx = null, analyser = null, stream = null, buf = null, timer = null, raf = null;
+var running = false;
+var energy = 0, level = -Infinity, lastT = 0;
+var zone = -1, muteUntil = 0;
+var GRACE = 3000;                       /* 途切れ・解除の猶予（ミリ秒） */
+var over = false, overSince = null, underSince = null, warn = false;
+function resetWarn(){ over = false; overSince = null; underSince = null; warn = false; }
+
+/* 表示用の15秒平均（エネルギー平均） */
+var AVG_MS = 15000;
+var win = [], winE = 0, winT = 0, disp = -Infinity;
+function resetAvg(){ win = []; winE = 0; winT = 0; disp = -Infinity; }
+function pushAvg(now, e, dt){
+  win.push({ t:now, e:e * dt, dt:dt }); winE += e * dt; winT += dt;
+  while(win.length && win[0].t <= now - AVG_MS){ var o = win.shift(); winE -= o.e; winT -= o.dt; }
+  if(win.length === 0 || winT <= 0){ winE = 0; winT = 0; return -Infinity; }
+  return 10 * Math.log10(winE / winT);
+}
+var peakV = -Infinity, peakT = 0;
+var hist = [];          // {t: 実時刻ms, v}  0.1秒ごと・直近10分
+var lastHistT = 0;
+var perSec = [];        // {time: Date, leq, max, zone}  1秒ごと・全体
+var secAcc = null;
+var st = null;
+resetStats();
+
+function resetStats(){
+  st = { sumE:0, n:0, max:-Infinity, loudMs:0, totalMs:0 };
+  hist = []; perSec = []; secAcc = null; peakV = -Infinity;
+  updateStats();
+  drawHist();
+}
+
+/* ---------- 開始・停止 ---------- */
+function showErr(msg){ var e = $('err'); e.textContent = msg; e.style.display = msg ? 'block' : 'none'; }
+
+function start(){
+  showErr('');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    showErr('このブラウザではマイクを使えません。Chrome または Edge で開いてください。');
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } })
+  .then(function(s){
+    stream = s;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    actx = new AC();
+    var src = actx.createMediaStreamSource(stream);
+    analyser = actx.createAnalyser();
+    analyser.fftSize = 2048;
+    src.connect(analyser);
+    buf = new Float32Array(analyser.fftSize);
+    running = true; energy = 0; lastT = performance.now(); zone = -1; resetWarn(); resetAvg();
+    timer = setInterval(measure, 50);
+    raf = requestAnimationFrame(render);
+    $('btnStart').textContent = '測定を停止';
+    $('hint').textContent = HINT_RUN;
+  })
+  .catch(function(e){
+    var n = e && e.name;
+    if(n === 'NotAllowedError' || n === 'SecurityError'){
+      showErr('マイクの使用が許可されていません。アドレスバー左のアイコンからマイクを「許可」にして、もう一度「測定を開始」を押してください。');
+    }else if(n === 'NotFoundError' || n === 'OverconstrainedError'){
+      showErr('マイクが見つかりません。マイクが接続され、OSの設定で有効になっているか確認してください。');
+    }else if(n === 'NotReadableError'){
+      showErr('マイクを開けませんでした。Zoom や Teams など、マイクを使っている他のアプリを閉じてから試してください。');
+    }else{
+      showErr('マイクを開始できませんでした（' + (n || e) + '）。');
+    }
+  });
+}
+
+function stop(){
+  running = false;
+  clearInterval(timer); cancelAnimationFrame(raf);
+  if(stream) stream.getTracks().forEach(function(t){ t.stop(); });
+  if(actx) actx.close();
+  stream = null; actx = null; analyser = null;
+  flushSec(true);
+  resetWarn(); resetAvg();
+  document.body.className = '';
+  setStatus('停止中');
+  $('db').textContent = '--';
+  showLevel(null);
+  $('fill').style.height = '0'; $('fill').style.width = '0';
+  $('peak').style.display = 'none';
+  $('btnStart').textContent = '測定を開始';
+  $('hint').textContent = '記録は残っています。「全体」でこの時間のグラフを確認し、CSVや画像で保存できます。';
+  drawHist();
+}
+
+/* ---------- 測定 ---------- */
+function measure(){
+  if(!running || !analyser) return;
+  var now = performance.now();
+  var dt = Math.min(now - lastT, 1000); lastT = now;
+
+  analyser.getFloatTimeDomainData(buf);
+  var s = 0;
+  for(var i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+  var rms = Math.sqrt(s / buf.length);
+  var inst = 20 * Math.log10(Math.max(rms, 1e-9)) + cfg.offset;
+
+  var tau = cfg.speed === 'slow' ? 1000 : 125;
+  var a = 1 - Math.exp(-dt / tau);
+  var e = Math.pow(10, inst / 10);
+  energy = energy > 0 ? energy + a * (e - energy) : e;
+  level = 10 * Math.log10(energy);
+
+  /* 警告音の間は平均に入れない */
+  if(now >= muteUntil) disp = pushAvg(now, energy, dt);
+  if(!isFinite(disp)) return;
+
+  /* 区分・警告は表示中の15秒平均で判定（2dBのヒステリシス） */
+  over = disp >= cfg.t2 || (over && disp > cfg.t2 - 2);
+  if(over){
+    if(overSince === null) overSince = now;
+    underSince = null;
+  }else{
+    if(underSince === null) underSince = now;
+    if(now - underSince >= GRACE){ overSince = null; warn = false; }
+  }
+  if(!warn && overSince !== null && now - overSince >= cfg.warnSec * 1000){
+    warn = true;
+    if(cfg.alarm) chime();
+  }
+
+  var z;
+  if(warn) z = 2;
+  else if(disp >= cfg.t1 || (zone >= 1 && disp > cfg.t1 - 2)) z = 1;
+  else z = 0;
+  zone = z;
+
+  if(level > peakV || now - peakT > 3000){ peakV = level; peakT = now; }
+
+  if(now < muteUntil) return;
+
+  st.sumE += energy * dt; st.n += dt; st.totalMs += dt;
+  if(level > st.max) st.max = level;
+  if(over) st.loudMs += dt;
+
+  var wall = Date.now();
+  if(wall - lastHistT >= 100){
+    hist.push({ t:wall, v:level }); lastHistT = wall;
+    var cut = wall - 600000;
+    while(hist.length && hist[0].t < cut) hist.shift();
+  }
+
+  if(!secAcc) secAcc = { t0:now, wall:new Date(wall), sumE:0, n:0, max:-Infinity, zmax:0 };
+  secAcc.sumE += energy * dt; secAcc.n += dt;
+  if(level > secAcc.max) secAcc.max = level;
+  if(zone > secAcc.zmax) secAcc.zmax = zone;
+  if(now - secAcc.t0 >= 1000) flushSec(false);
+}
+
+function flushSec(force){
+  if(!secAcc || secAcc.n <= 0){ secAcc = null; return; }
+  if(!force && secAcc.n < 500) return;
+  perSec.push({ time:secAcc.wall, leq:10 * Math.log10(secAcc.sumE / secAcc.n), max:secAcc.max, zone:secAcc.zmax });
+  secAcc = null;
+}
+
+function chime(){
+  if(!actx) return;
+  var t = actx.currentTime;
+  [[880,0],[660,0.35]].forEach(function(p){
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine'; o.frequency.value = p[0];
+    g.gain.setValueAtTime(0.0001, t + p[1]);
+    g.gain.exponentialRampToValueAtTime(0.35, t + p[1] + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + p[1] + 1.0);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t + p[1]); o.stop(t + p[1] + 1.05);
+  });
+  muteUntil = performance.now() + 1900;
+}
+
+/* ---------- 描画 ---------- */
+var HINT_RUN = '測定中です。PCのマイクの近くで大きな音を立てると、実際より大きく出ます。';
+var narrow = window.matchMedia('(max-width:760px)');
+var lastGraph = 0;
+function render(ts){
+  if(!running) return;
+  raf = requestAnimationFrame(render);
+  if(!isFinite(level)) return;
+  document.body.className = 'z' + zone + (cfg.blink && zone === 2 ? ' blink' : '');
+  setStatus(cfg.labels[zone] || '');
+  if(isFinite(disp)){ $('db').textContent = disp.toFixed(0); showLevel(disp); }
+  var hintTxt = HINT_RUN;
+  if(!warn && overSince !== null){
+    var left = Math.max(0, Math.ceil((cfg.warnSec * 1000 - (performance.now() - overSince)) / 1000));
+    hintTxt = '15秒平均が ' + cfg.t2 + ' dB以上です。このまま続くと、あと ' + left + ' 秒で警告を表示します。';
+  }
+  if($('hint').textContent !== hintTxt) $('hint').textContent = hintTxt;
+  var f = frac(level) * 100;
+  if(narrow.matches){ $('fill').style.width = f + '%'; }
+  else{
+    $('fill').style.height = f + '%';
+    var pk = $('peak'); pk.style.display = 'block'; pk.style.bottom = (frac(peakV) * 100) + '%';
+  }
+  updateStats();
+  if(ts - lastGraph > 100){ drawHist(); lastGraph = ts; }
+}
+
+function setStatus(t){
+  var el = $('status');
+  if(el.textContent === t) return;
+  el.textContent = t;
+  el.classList.toggle('long', t.length > 5);
+}
+function mmss(ms){
+  var s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
+  var ss = ('0' + (s % 60)).slice(-2);
+  return h ? h + ':' + ('0' + (m % 60)).slice(-2) + ':' + ss : m + ':' + ss;
+}
+function updateStats(){
+  $('sTime').textContent = mmss(st.totalMs);
+  $('sAvg').textContent = st.n > 0 ? (10 * Math.log10(st.sumE / st.n)).toFixed(0) + ' dB' : '--';
+  $('sMax').textContent = isFinite(st.max) ? st.max.toFixed(0) + ' dB' : '--';
+  var pct = st.totalMs > 0 ? Math.round(st.loudMs / st.totalMs * 100) : 0;
+  $('sLoudLabel').firstChild.nodeValue = cfg.t2 + ' dB以上（15秒平均）の時間';
+  $('sLoud').textContent = mmss(st.loudMs) + '（' + pct + '%）';
+}
+
+function placeMarks(){
+  [['mark1', cfg.t1, cfg.labels[1]], ['mark2', cfg.t2, cfg.labels[2]]].forEach(function(m){
+    var el = $(m[0]);
+    el.style.bottom = (frac(m[1]) * 100) + '%';
+    el.title = m[2] + '（' + m[1] + ' dB 以上）';
+  });
+}
+
+function pad2(n){ return ('0' + n).slice(-2); }
+function clock(t, withSec){
+  var d = new Date(t);
+  return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + (withSec ? ':' + pad2(d.getSeconds()) : '');
+}
+
+/* 時刻（横軸）×dB（縦軸）のグラフ */
+function drawGraph(c, w, h){
+  var padL = 50, padR = 14, padT = 12, padB = 30;
+  var pw = w - padL - padR, ph = h - padT - padB;
+  if(pw < 20 || ph < 20) return;
+  var y = function(v){ return padT + ph * (1 - frac(v)); };
+
+  // 5段階の帯
+  LEVELS.forEach(function(L, i){
+    var lo = L.lo === null ? VMIN : L.lo, hi = L.hi === null ? VMAX : L.hi;
+    c.fillStyle = i % 2 ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.02)';
+    c.fillRect(padL, y(hi), pw, y(lo) - y(hi));
+    c.fillStyle = 'rgba(244,246,241,.45)';
+    c.font = '11px sans-serif'; c.textAlign = 'right'; c.textBaseline = 'middle';
+    c.fillText('Lv' + L.n, w - padR - 4, (y(lo) + y(hi)) / 2);
+  });
+
+  // 縦軸（dB）
+  c.font = '12px sans-serif'; c.textAlign = 'right'; c.textBaseline = 'middle';
+  for(var v = VMIN; v <= VMAX; v += 10){
+    c.strokeStyle = 'rgba(255,255,255,.12)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(padL, y(v)); c.lineTo(padL + pw, y(v)); c.stroke();
+    c.fillStyle = 'rgba(244,246,241,.75)';
+    c.fillText(String(v), padL - 8, y(v));
+  }
+  c.save(); c.translate(13, padT + ph / 2); c.rotate(-Math.PI / 2);
+  c.textAlign = 'center'; c.fillText('音量（dB）', 0, 0); c.restore();
+
+  // しきい値
+  c.setLineDash([5,4]); c.strokeStyle = 'rgba(255,255,255,.6)';
+  [cfg.t1, cfg.t2].forEach(function(t){ c.beginPath(); c.moveTo(padL, y(t)); c.lineTo(padL + pw, y(t)); c.stroke(); });
+  c.setLineDash([]);
+
+  // データ
+  var pts, gap;
+  if(cfg.range === 'all'){
+    pts = perSec.map(function(r){ return { t:r.time.getTime(), v:r.leq }; });
+    if(running && hist.length) pts.push(hist[hist.length - 1]);
+    gap = 3000;
+  }else{
+    pts = hist; gap = 1000;
+  }
+  var tEnd, tStart;
+  if(cfg.range === 'all'){
+    if(pts.length){ tStart = pts[0].t; tEnd = Math.max(pts[pts.length - 1].t, tStart + 60000); }
+    else{ tEnd = Date.now(); tStart = tEnd - 60000; }
+  }else{
+    tEnd = running ? Date.now() : (hist.length ? hist[hist.length - 1].t : Date.now());
+    tStart = tEnd - cfg.range * 1000;
+  }
+  var span = tEnd - tStart;
+  var x = function(t){ return padL + pw * (t - tStart) / span; };
+
+  // 横軸（時刻）
+  var steps = [5,10,15,30,60,120,300,600,900,1800,3600];
+  var target = Math.max(3, Math.floor(pw / 90));
+  var stepS = steps[steps.length - 1];
+  for(var k = 0; k < steps.length; k++){ if(span / 1000 / steps[k] <= target){ stepS = steps[k]; break; } }
+  var step = stepS * 1000;
+  var tz = new Date(tStart).getTimezoneOffset() * 60000;
+  var first = Math.ceil((tStart - tz) / step) * step + tz;
+  c.textAlign = 'center'; c.textBaseline = 'top'; c.fillStyle = 'rgba(244,246,241,.75)';
+  for(var t = first; t <= tEnd; t += step){
+    var px = x(t);
+    c.strokeStyle = 'rgba(255,255,255,.12)';
+    c.beginPath(); c.moveTo(px, padT); c.lineTo(px, padT + ph + 4); c.stroke();
+    c.fillText(clock(t, stepS < 60), px, padT + ph + 8);
+  }
+  c.strokeStyle = 'rgba(255,255,255,.4)';
+  c.beginPath(); c.moveTo(padL, padT); c.lineTo(padL, padT + ph); c.lineTo(padL + pw, padT + ph); c.stroke();
+
+  if(pts.length < 2) return;
+  c.save();
+  c.beginPath(); c.rect(padL, padT, pw, ph); c.clip();
+  c.strokeStyle = '#F4F6F1'; c.lineWidth = 2; c.lineJoin = 'round';
+  c.beginPath();
+  var prev = null;
+  for(var i = 0; i < pts.length; i++){
+    var p = pts[i];
+    if(p.t < tStart - gap) continue;
+    var X = x(p.t), Y = y(p.v);
+    if(!prev || p.t - prev.t > gap) c.moveTo(X, Y); else c.lineTo(X, Y);
+    prev = p;
+  }
+  c.stroke();
+  c.restore();
+}
+
+function drawHist(){
+  var cv = $('hist'), dpr = window.devicePixelRatio || 1;
+  var w = cv.clientWidth, h = cv.clientHeight;
+  if(!w || !h) return;
+  if(cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)){
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  }
+  var c = cv.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, w, h);
+  drawGraph(c, w, h);
+}
+
+function setRange(r){
+  cfg.range = r === 'all' ? 'all' : (parseInt(r, 10) || 60);
+  saveCfg();
+  Array.prototype.forEach.call(document.querySelectorAll('.rng button'), function(b){
+    b.setAttribute('aria-pressed', String(b.dataset.r === String(cfg.range)));
+  });
+  drawHist();
+}
+Array.prototype.forEach.call(document.querySelectorAll('.rng button'), function(b){
+  b.addEventListener('click', function(){ setRange(b.dataset.r); });
+});
+
+/* ---------- 保存 ---------- */
+function download(blob, name){
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+}
+function stamp(d){ return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '_' + pad2(d.getHours()) + pad2(d.getMinutes()); }
+
+function exportCsv(){
+  if(running) flushSec(true);
+  if(!perSec.length){ showErr('保存できる記録がまだありません。測定を開始してから保存してください。'); return; }
+  showErr('');
+  var q = function(s){ return '"' + String(s).replace(/"/g, '""') + '"'; };
+  var lines = ['時刻,平均(dB),最大(dB),区分,目安レベル'];
+  perSec.forEach(function(r){
+    var d = r.time, L = levelOf(r.leq);
+    var ts = d.getFullYear() + '/' + pad2(d.getMonth() + 1) + '/' + pad2(d.getDate()) + ' ' + clock(d.getTime(), true);
+    lines.push([ts, r.leq.toFixed(1), r.max.toFixed(1), q(cfg.labels[r.zone]), q('Lv' + L.n + ' ' + L.name)].join(','));
+  });
+  download(new Blob(['\uFEFF' + lines.join('\r\n')], { type:'text/csv' }), '音量記録_' + stamp(perSec[0].time) + '.csv');
+}
+
+function exportPng(){
+  if(running) flushSec(true);
+  if(!perSec.length && !hist.length){ showErr('保存できるグラフがまだありません。測定を開始してから保存してください。'); return; }
+  showErr('');
+  var W = 1600, H = 700, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  var c = cv.getContext('2d');
+  c.fillStyle = '#26333A'; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#F4F6F1'; c.font = 'bold 26px sans-serif'; c.textAlign = 'left'; c.textBaseline = 'top';
+  var d0 = perSec.length ? perSec[0].time : new Date(hist[0].t);
+  var title = '教室の音量　' + d0.getFullYear() + '/' + pad2(d0.getMonth() + 1) + '/' + pad2(d0.getDate());
+  c.fillText(title, 30, 22);
+  c.font = '18px sans-serif'; c.fillStyle = 'rgba(244,246,241,.8)';
+  var sub = '平均 ' + $('sAvg').textContent + '　最大 ' + $('sMax').textContent + '　測定時間 ' + $('sTime').textContent + '　（PCマイクによる目安の値）';
+  c.fillText(sub, 30, 60);
+  c.save(); c.translate(20, 100);
+  c.scale(1.25, 1.25);
+  drawGraph(c, (W - 40) / 1.25, (H - 120) / 1.25);
+  c.restore();
+  cv.toBlob(function(b){ if(b) download(b, '音量グラフ_' + stamp(d0) + '.png'); });
+}
+
+/* ---------- 設定ダイアログ ---------- */
+function fillForm(){
+  $('lab0').value = cfg.labels[0]; $('lab1').value = cfg.labels[1]; $('lab2').value = cfg.labels[2];
+  $('t1').value = cfg.t1; $('t2').value = cfg.t2;
+  $('speed').value = cfg.speed;
+  $('alarm').checked = cfg.alarm; $('warnSec').value = cfg.warnSec;
+  $('blink').checked = cfg.blink;
+  $('offset').value = cfg.offset; $('calIn').value = '';
+}
+function readForm(){
+  var n = function(id, d){ var v = parseFloat($(id).value); return isFinite(v) ? v : d; };
+  cfg.labels = [$('lab0').value || DEF.labels[0], $('lab1').value || DEF.labels[1], $('lab2').value || DEF.labels[2]];
+  cfg.t1 = n('t1', DEF.t1); cfg.t2 = n('t2', DEF.t2);
+  if(cfg.t2 <= cfg.t1) cfg.t2 = cfg.t1 + 1;
+  cfg.speed = $('speed').value;
+  cfg.blink = $('blink').checked;
+  cfg.alarm = $('alarm').checked; cfg.warnSec = Math.max(1, Math.round(n('warnSec', DEF.warnSec)));
+  cfg.offset = n('offset', DEF.offset);
+  saveCfg(); placeMarks(); updateStats(); drawHist();
+}
+['lab0','lab1','lab2','t1','t2','speed','alarm','warnSec','blink','offset'].forEach(function(id){
+  $(id).addEventListener('change', readForm);
+});
+$('btnCal').addEventListener('click', function(){
+  var target = parseFloat($('calIn').value);
+  if(!running || !isFinite(level)){ alert('測定中に合わせてください。先に「測定を開始」を押してください。'); return; }
+  if(!isFinite(target)){ alert('基準の値（dB）を入力してください。'); return; }
+  cfg.offset = Math.round((cfg.offset + (target - level)) * 2) / 2;
+  $('offset').value = cfg.offset;
+  energy = energy * Math.pow(10, (target - level) / 10);
+  saveCfg();
+});
+$('btnDefault').addEventListener('click', function(){
+  cfg = JSON.parse(JSON.stringify(DEF)); saveCfg(); fillForm(); placeMarks(); setRange(cfg.range); updateStats();
+});
+$('setForm').addEventListener('submit', readForm);
+
+/* ---------- ボタン・キー ---------- */
+$('btnStart').addEventListener('click', function(){ running ? stop() : start(); });
+$('btnReset').addEventListener('click', function(){
+  if(perSec.length && !confirm('これまでの記録を消して、測り直しますか？')) return;
+  resetStats();
+});
+$('btnCsv').addEventListener('click', exportCsv);
+$('btnPng').addEventListener('click', exportPng);
+$('btnSet').addEventListener('click', openSettings);
+$('btnFull').addEventListener('click', toggleFull);
+function openSettings(){ fillForm(); $('dlg').showModal(); }
+function toggleFull(){
+  if(document.fullscreenElement) document.exitFullscreen();
+  else if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+}
+document.addEventListener('keydown', function(e){
+  if($('dlg').open) return;
+  var tag = (e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'select' || tag === 'textarea') return;
+  if(e.code === 'Space'){ e.preventDefault(); running ? stop() : start(); }
+  else if(e.key === 'f' || e.key === 'F'){ e.preventDefault(); toggleFull(); }
+  else if(e.key === 's' || e.key === 'S'){ e.preventDefault(); openSettings(); }
+});
+window.addEventListener('resize', drawHist);
+
+buildLevels();
+placeMarks();
+setRange(cfg.range);
+updateStats();
+})();
+</script>
+</body>
+</html>
