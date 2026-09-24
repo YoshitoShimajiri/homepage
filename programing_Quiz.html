@@ -29,8 +29,6 @@
     .viewer-header p { margin: 2px 0 0; font-size: 13px; color: #657185; }
     .open-link { display: inline-block; color: #244d80; border: 1px solid #c7d4e5; border-radius: 6px; padding: 8px 13px; font-size: 14px; font-weight: 600; text-decoration: none; }
     .open-link:hover { background: #f0f5fb; text-decoration: underline; }
-    .fallback { margin: 0; padding: 12px 22px; color: #59677a; background: #fafbfd; border-bottom: 1px solid #e3e8ef; font-size: 12px; }
-    iframe { display: block; width: 100%; height: 680px; border: 0; background: #fff; }
     .empty { min-height: 320px; display: grid; align-content: center; justify-items: center; padding: 32px; text-align: center; background: #fafbfd; }
     .empty .symbol { font-size: 28px; color: #627797; margin-bottom: 10px; }
     .empty h3 { font-size: 22px; margin: 0 0 8px; }
@@ -38,7 +36,7 @@
     footer { padding: 22px 0 8px; font-size: 12px; color: #657185; }
     [hidden] { display: none !important; }
     @media (max-width: 800px) { .lessons { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-    @media (max-width: 480px) { main { padding: 28px 18px 20px; } .lessons { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lesson { min-height: 72px; padding: 10px 14px; } .section-heading { flex-wrap: wrap; gap: 4px 12px; } .viewer-header { padding: 16px; } .fallback { padding: 12px 16px; } iframe { height: 70vh; min-height: 480px; } }
+    @media (max-width: 480px) { main { padding: 28px 18px 20px; } .lessons { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lesson { min-height: 72px; padding: 10px 14px; } .section-heading { flex-wrap: wrap; gap: 4px 12px; } .viewer-header { padding: 16px; } }
   </style>
 </head>
 <body>
@@ -58,8 +56,6 @@
       <div aria-live="polite" aria-atomic="true"><h2 id="quiz-title">第1回のクイズ</h2><p id="quiz-subtitle">授業内容の理解を確認しましょう。</p></div>
       <a id="open-link" class="open-link" target="_blank" rel="noopener noreferrer">NotebookLMで開く <span aria-hidden="true">↗</span><span class="new-tab">（別タブ）</span></a>
     </div>
-    <p id="fallback" class="fallback">表示されない場合やログインを求められた場合は、「NotebookLMで開く」をご利用ください。Google側の設定により、このページ内では表示できないことがあります。</p>
-    <div id="frame-container"></div>
     <div id="empty" class="empty" hidden><span class="symbol" aria-hidden="true">⌛</span><h3>準備中</h3><p>この回のクイズは、公開までお待ちください。<br>公開中の第1〜13回をご利用いただけます。</p></div>
   </section>
   <noscript><p>クイズの切り替えにはJavaScriptを有効にしてください。</p></noscript>
@@ -85,7 +81,6 @@
     null
   ];
   const lessons = document.getElementById('lessons');
-  const container = document.getElementById('frame-container');
   const openLink = document.getElementById('open-link');
   let currentIndex = -1;
   function selectLesson(index) {
@@ -96,15 +91,9 @@
     document.getElementById('quiz-title').textContent = `第${index + 1}回のクイズ`;
     document.getElementById('quiz-subtitle').textContent = url ? '授業内容の理解を確認しましょう。' : 'この回はまだ公開されていません。';
     document.getElementById('empty').hidden = Boolean(url);
-    document.getElementById('fallback').hidden = !url;
     openLink.hidden = !url;
-    container.replaceChildren();
     if (url) {
       openLink.href = url;
-      const frame = document.createElement('iframe');
-      frame.title = `第${index + 1}回：NotebookLM 自習用クイズ`;
-      frame.src = url;
-      container.appendChild(frame);
     } else {
       openLink.removeAttribute('href');
     }
@@ -114,7 +103,7 @@
     button.type = 'button';
     button.className = 'lesson';
     button.setAttribute('aria-pressed', 'false');
-    button.setAttribute('aria-controls', 'frame-container empty');
+    button.setAttribute('aria-controls', 'quiz-title quiz-subtitle open-link empty');
     const label = document.createElement('strong');
     label.textContent = `第${index + 1}回`;
     const status = document.createElement('span');
