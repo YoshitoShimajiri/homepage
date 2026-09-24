@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>プログラミング基礎 自習用クイズ</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif; color: #243046; background: #fff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.7; }
+    main { max-width: 1160px; margin: auto; padding: 48px 32px 24px; }
+    .eyebrow { margin: 0 0 8px; color: #526783; font-size: 12px; letter-spacing: .12em; font-weight: 700; }
+    h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); line-height: 1.5; letter-spacing: .02em; }
+    .intro { margin: 12px 0 24px; color: #586477; }
+    .notice { border-left: 3px solid #3e6598; background: #f4f7fb; padding: 14px 18px; font-size: 14px; }
+    h2 { margin: 0; font-size: 19px; }
+    .section-heading { display: flex; align-items: baseline; gap: 14px; margin: 30px 0 14px; }
+    .section-heading span { font-size: 13px; color: #637086; }
+    .lessons { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+    .lesson { appearance: none; font: inherit; cursor: pointer; text-align: left; color: #334155; border: 1px solid #d9e0e9; background: #fff; padding: 14px 16px; border-radius: 8px; min-height: 83px; transition: background .15s, border-color .15s; }
+    .lesson strong { display: block; font-size: 16px; }
+    .lesson span { display: block; font-size: 11px; color: #657185; margin-top: 4px; }
+    .lesson:hover { background: #f4f7fb; border-color: #7c94b5; }
+    .lesson[aria-pressed="true"] { color: #fff; background: #244d80; border-color: #244d80; }
+    .lesson[aria-pressed="true"] span { color: #e0eafb; }
+    :focus-visible { outline: 3px solid #d08217; outline-offset: 4px; }
+    .viewer { margin-top: 28px; border: 1px solid #d9e0e9; border-radius: 10px; overflow: hidden; }
+    .viewer-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 19px 22px; border-bottom: 1px solid #e3e8ef; }
+    .viewer-header p { margin: 2px 0 0; font-size: 13px; color: #657185; }
+    .open-link { display: inline-block; color: #244d80; border: 1px solid #c7d4e5; border-radius: 6px; padding: 8px 13px; font-size: 14px; font-weight: 600; text-decoration: none; }
+    .open-link:hover { background: #f0f5fb; text-decoration: underline; }
+    .fallback { margin: 0; padding: 12px 22px; color: #59677a; background: #fafbfd; border-bottom: 1px solid #e3e8ef; font-size: 12px; }
+    iframe { display: block; width: 100%; height: 680px; border: 0; background: #fff; }
+    .empty { min-height: 320px; display: grid; align-content: center; justify-items: center; padding: 32px; text-align: center; background: #fafbfd; }
+    .empty .symbol { font-size: 28px; color: #627797; margin-bottom: 10px; }
+    .empty h3 { font-size: 22px; margin: 0 0 8px; }
+    .empty p { margin: 0; color: #657185; font-size: 14px; }
+    footer { padding: 22px 0 8px; font-size: 12px; color: #657185; }
+    [hidden] { display: none !important; }
+    @media (max-width: 800px) { .lessons { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (max-width: 480px) { main { padding: 28px 18px 20px; } .lessons { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lesson { min-height: 72px; padding: 10px 14px; } .section-heading { flex-wrap: wrap; gap: 4px 12px; } .viewer-header { padding: 16px; } .fallback { padding: 12px 16px; } iframe { height: 70vh; min-height: 480px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">PROGRAMMING / SELF STUDY</p>
+    <h1>プログラミング基礎 自習用クイズ</h1>
+    <p class="intro">授業で学んだ内容を、自分のペースで振り返りましょう。</p>
+    <div class="notice">このクイズは<strong>自習用</strong>です。成績評価には使用しません。この教材ページでは回答の収集・保存を行いません。</div>
+  </header>
+  <section aria-labelledby="select-title">
+    <div class="section-heading"><h2 id="select-title">学習する回を選択</h2><span>全14回 · 第1〜13回を公開中</span></div>
+    <div class="lessons" id="lessons" role="group" aria-label="授業回の選択"></div>
+  </section>
+  <section class="viewer" aria-labelledby="quiz-title">
+    <div class="viewer-header">
+      <div aria-live="polite" aria-atomic="true"><h2 id="quiz-title">第1回のクイズ</h2><p id="quiz-subtitle">授業内容の理解を確認しましょう。</p></div>
+      <a id="open-link" class="open-link" target="_blank" rel="noopener noreferrer">NotebookLMで開く <span aria-hidden="true">↗</span><span class="new-tab">（別タブ）</span></a>
+    </div>
+    <p id="fallback" class="fallback">表示されない場合やログインを求められた場合は、「NotebookLMで開く」をご利用ください。Google側の設定により、このページ内では表示できないことがあります。</p>
+    <div id="frame-container"></div>
+    <div id="empty" class="empty" hidden><span class="symbol" aria-hidden="true">⌛</span><h3>準備中</h3><p>この回のクイズは、公開までお待ちください。<br>公開中の第1〜13回をご利用いただけます。</p></div>
+  </section>
+  <noscript><p>クイズの切り替えにはJavaScriptを有効にしてください。</p></noscript>
+  <footer>外部サービス：NotebookLM（Google） · 外部サービス内のデータの取り扱いは、そのサービスの規約・設定に従います。</footer>
+</main>
+<script>
+  'use strict';
+  // 第14回の公開時は、末尾の null を共有URLに置き換えてください。
+  const quizUrls = [
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/1e61ae8d-838b-4741-a379-9b2265315250?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/ee98e5c4-022a-4e66-b6fb-bec5e98e7920?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/e11f4f16-41f9-4871-8291-261a3f597b42?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/5fc870e2-c2ff-4e8f-926a-aadfff8142ce?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/151c102d-a6d8-48cd-ab8a-0be1abbad76c?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/bde28630-4034-4a1e-9976-18b71c91eb1c?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/32d3cee5-0e4f-46b4-85ee-f001d9bc98b9?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/2455af30-7d38-450f-abda-57a98e0528c5?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/24806d80-af41-431a-ad1e-cd19fd18376d?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/9b638bc6-f8a1-4d71-866a-287634820705?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/e2f78119-a64b-45fa-84a5-1e45b983f353?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/4dedae3c-1052-433c-aeab-c0fe024b3345?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    'https://notebook.google.com/notebook/1f3ce0db-b937-40a6-a008-ad3286020f8a/artifact/850d29ab-f0af-4d7e-9578-16b24310381d?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_1&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_1_',
+    null
+  ];
+  const lessons = document.getElementById('lessons');
+  const container = document.getElementById('frame-container');
+  const openLink = document.getElementById('open-link');
+  let currentIndex = -1;
+  function selectLesson(index) {
+    if (index === currentIndex) return;
+    currentIndex = index;
+    const url = quizUrls[index];
+    Array.from(lessons.children).forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
+    document.getElementById('quiz-title').textContent = `第${index + 1}回のクイズ`;
+    document.getElementById('quiz-subtitle').textContent = url ? '授業内容の理解を確認しましょう。' : 'この回はまだ公開されていません。';
+    document.getElementById('empty').hidden = Boolean(url);
+    document.getElementById('fallback').hidden = !url;
+    openLink.hidden = !url;
+    container.replaceChildren();
+    if (url) {
+      openLink.href = url;
+      const frame = document.createElement('iframe');
+      frame.title = `第${index + 1}回：NotebookLM 自習用クイズ`;
+      frame.src = url;
+      container.appendChild(frame);
+    } else {
+      openLink.removeAttribute('href');
+    }
+  }
+  quizUrls.forEach((url, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'lesson';
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-controls', 'frame-container empty');
+    const label = document.createElement('strong');
+    label.textContent = `第${index + 1}回`;
+    const status = document.createElement('span');
+    status.textContent = url ? '公開中' : '準備中';
+    button.append(label, status);
+    button.addEventListener('click', () => selectLesson(index));
+    lessons.appendChild(button);
+  });
+  selectLesson(0);
+</script>
+</body>
+</html>
