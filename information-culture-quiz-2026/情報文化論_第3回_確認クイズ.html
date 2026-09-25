@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>情報文化論 第3回 確認クイズ</title>
+<style>
+  :root {
+    --bg:#f5f7fb; --card:#ffffff; --text:#172033; --muted:#687386;
+    --accent:#315efb; --accent-soft:#eaf0ff; --ok:#147a4a; --ok-bg:#eaf8f1;
+    --ng:#c23838; --ng-bg:#fff0f0; --border:#dce2ec; --shadow:0 10px 30px rgba(28,40,72,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;line-height:1.65}
+  .wrap{max-width:920px;margin:0 auto;padding:24px 16px 64px}
+  header{margin-bottom:18px}
+  h1{font-size:clamp(1.55rem,3vw,2.15rem);margin:.15em 0 .1em}
+  .sub{color:var(--muted);margin:0}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:clamp(18px,4vw,34px);margin-top:18px}
+  .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+  .toggle{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:12px;padding:14px;background:#fbfcff;cursor:pointer}
+  .toggle input{width:20px;height:20px;accent-color:var(--accent)}
+  .btn{appearance:none;border:0;border-radius:11px;padding:12px 18px;font-size:1rem;font-weight:700;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.secondary{background:#eef1f6;color:var(--text)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .progress-meta{font-weight:700}
+  .score{color:var(--muted)}
+  .progress{height:10px;background:#e8ebf1;border-radius:999px;overflow:hidden;margin:14px 0 6px}
+  .progress > div{height:100%;width:0;background:var(--accent);transition:width .2s ease}
+  .qnum{color:var(--accent);font-weight:800;margin:18px 0 4px}
+  .question{font-size:clamp(1.12rem,2.2vw,1.36rem);font-weight:750;margin:0 0 18px}
+  .options{display:grid;gap:11px}
+  .option{width:100%;text-align:left;border:2px solid var(--border);background:#fff;border-radius:13px;padding:14px 16px;font-size:1rem;cursor:pointer;transition:.12s}
+  .option:hover{border-color:#aab8e9;background:#fafbff}
+  .option.selected{border-color:var(--accent);background:var(--accent-soft)}
+  .option.correct{border-color:var(--ok);background:var(--ok-bg)}
+  .option.wrong{border-color:var(--ng);background:var(--ng-bg)}
+  .choice-label{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#eef1f6;font-weight:800;margin-right:10px}
+  .feedback{margin-top:18px;border-radius:13px;padding:15px 16px;display:none}
+  .feedback.show{display:block}
+  .feedback.ok{background:var(--ok-bg);border:1px solid #b9e4cf}
+  .feedback.ng{background:var(--ng-bg);border:1px solid #f0c6c6}
+  .feedback strong{display:block;margin-bottom:3px}
+  .explain{margin-top:8px;color:#374155}
+  .nav{display:flex;justify-content:space-between;gap:10px;margin-top:22px}
+  .nav .right{display:flex;gap:10px}
+  .jump{display:flex;flex-wrap:wrap;gap:7px;margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
+  .jump button{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:650}
+  .jump button.current{outline:2px solid var(--accent);outline-offset:1px}
+  .jump button.answered{background:#eef3ff;border-color:#afc0ff}
+  .result{text-align:center}
+  .result .big{font-size:clamp(2.2rem,8vw,4.2rem);font-weight:900;color:var(--accent);line-height:1.1;margin:12px 0}
+  .result-note{color:var(--muted)}
+  .result-list{margin-top:24px;text-align:left}
+  .result-row{border-top:1px solid var(--border);padding:12px 0}
+  .result-row b.ok{color:var(--ok)} .result-row b.ng{color:var(--ng)}
+  .small{font-size:.9rem;color:var(--muted)}
+  .hidden{display:none!important}
+  @media(max-width:640px){.settings-grid{grid-template-columns:1fr}.nav{align-items:stretch}.nav,.nav .right{flex-direction:column}.btn{width:100%}}
+  @media print{body{background:#fff}.wrap{max-width:none}.card{box-shadow:none}.settings,.nav,.jump{display:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>情報文化論 第3回 確認クイズ</h1>
+    <p class="sub">全24問。選択後すぐに正誤と解説を確認できます。回答は何度でも選び直せます。</p>
+  </header>
+
+  <section id="settingsCard" class="card settings">
+    <h2 style="margin-top:0">開始設定</h2>
+    <p>シャッフルしたい項目だけONにしてください。開始するたびに新しく並び替えます。</p>
+    <div class="settings-grid">
+      <label class="toggle"><input id="shuffleQuestions" type="checkbox"> <span><b>問題順をランダム</b><br><span class="small">問題の出題順を毎回シャッフル</span></span></label>
+      <label class="toggle"><input id="shuffleOptions" type="checkbox"> <span><b>選択肢順をランダム</b><br><span class="small">各問題の4つの選択肢をシャッフル</span></span></label>
+    </div>
+    <button id="startBtn" class="btn primary">クイズを開始</button>
+  </section>
+
+  <section id="quizCard" class="card hidden">
+    <div class="topbar">
+      <div class="progress-meta"><span id="currentNo">1</span> / <span id="totalNo">24</span></div>
+      <div class="score">回答済み <b id="answeredCount">0</b>問　現在の正解 <b id="correctCount">0</b>問</div>
+    </div>
+    <div class="progress"><div id="progressBar"></div></div>
+    <div id="qnum" class="qnum"></div>
+    <div id="question" class="question"></div>
+    <div id="options" class="options"></div>
+    <div id="feedback" class="feedback"></div>
+    <div class="nav">
+      <button id="prevBtn" class="btn secondary">← 前の問題</button>
+      <div class="right">
+        <button id="restartBtn" class="btn secondary">設定を変えて最初から</button>
+        <button id="nextBtn" class="btn primary">次の問題 →</button>
+      </div>
+    </div>
+    <div id="jump" class="jump"></div>
+  </section>
+
+  <section id="resultCard" class="card result hidden">
+    <h2>結果</h2>
+    <div class="big"><span id="resultScore"></span> / 24</div>
+    <p id="resultPercent" class="result-note"></p>
+    <button id="retryBtn" class="btn primary">同じ設定でもう一度</button>
+    <button id="backSettingsBtn" class="btn secondary" style="margin-left:8px">設定を変更</button>
+    <div id="resultList" class="result-list"></div>
+  </section>
+</div>
+
+<script>
+const SOURCE_QUESTIONS = [{"id": 1, "text": "アナログ量の説明として正しいものはどれか。", "explanation": "アナログ量は連続した量。デジタル量は不連続(離散的)な量。", "options": [{"text": "有限桁の数値で表現される量", "correct": false, "order": 1}, {"text": "0と1だけで表現される量", "correct": false, "order": 2}, {"text": "不連続(離散的)な量", "correct": false, "order": 3}, {"text": "連続した量。温度や圧力など自然界の連続した現象", "correct": true, "order": 4}]}, {"id": 2, "text": "デジタル量の説明として正しいものはどれか。", "explanation": "デジタル量は離散的で、アナログ量を有限桁の数値で表現したもの。", "options": [{"text": "不連続(離散的)な量で、アナログ量を有限桁の数値で表現する", "correct": true, "order": 1}, {"text": "必ず10進数で表される量", "correct": false, "order": 2}, {"text": "数値化できない量", "correct": false, "order": 3}, {"text": "連続した量で、自然界の現象そのもの", "correct": false, "order": 4}]}, {"id": 3, "text": "アナログデータをデジタルデータに変換する手順の正しい順序はどれか。", "explanation": "A/D変換は 標本化→量子化→符号化 の順。", "options": [{"text": "量子化 → 標本化 → 符号化", "correct": false, "order": 1}, {"text": "標本化 → 符号化 → 量子化", "correct": false, "order": 2}, {"text": "標本化 → 量子化 → 符号化", "correct": true, "order": 3}, {"text": "符号化 → 量子化 → 標本化", "correct": false, "order": 4}]}, {"id": 4, "text": "CDにおいて、ピットとランドの境界と信号の対応として正しいものはどれか。", "explanation": "ピット→ランド、ランド→ピットの変化する境界が1、変化がない部分が0。", "options": [{"text": "ピットが常に「1」、ランドが常に「0」", "correct": false, "order": 1}, {"text": "すべて「1」で記録される", "correct": false, "order": 2}, {"text": "変化する境界が「0」、変化がない部分が「1」に対応", "correct": false, "order": 3}, {"text": "変化する境界が「1」、変化がない部分が「0」に対応", "correct": true, "order": 4}]}, {"id": 5, "text": "2進数 1011 を10進数で表した値はどれか。", "explanation": "1×8+0×4+1×2+1×1 = 8+2+1 = 11。", "options": [{"text": "15", "correct": false, "order": 1}, {"text": "11", "correct": true, "order": 2}, {"text": "9", "correct": false, "order": 3}, {"text": "13", "correct": false, "order": 4}]}, {"id": 6, "text": "10進数 25 を2進数で表したものはどれか。", "explanation": "25 = 16+8+1 = 11001(2)。", "options": [{"text": "10011", "correct": false, "order": 1}, {"text": "10101", "correct": false, "order": 2}, {"text": "11001", "correct": true, "order": 3}, {"text": "11011", "correct": false, "order": 4}]}, {"id": 7, "text": "コンピュータが扱う最も小さいデータ量の単位で、0と1で表現される「binary digit」の略はどれか。", "explanation": "bit=binary digit。最も小さなデータ量の単位。", "options": [{"text": "ヘルツ(Hz)", "correct": false, "order": 1}, {"text": "ワード(word)", "correct": false, "order": 2}, {"text": "ビット(bit)", "correct": true, "order": 3}, {"text": "バイト(byte)", "correct": false, "order": 4}]}, {"id": 8, "text": "1バイトは何ビットか。", "explanation": "1バイト(byte)=8ビット(bit)。", "options": [{"text": "4ビット", "correct": false, "order": 1}, {"text": "2ビット", "correct": false, "order": 2}, {"text": "8ビット", "correct": true, "order": 3}, {"text": "16ビット", "correct": false, "order": 4}]}, {"id": 9, "text": "4ビットで表現できる整数の範囲として正しいものはどれか。", "explanation": "3ビットで0〜7、4ビットで0〜15(=2^4−1)。", "options": [{"text": "0〜7", "correct": false, "order": 1}, {"text": "0〜3", "correct": false, "order": 2}, {"text": "0〜15", "correct": true, "order": 3}, {"text": "0〜31", "correct": false, "order": 4}]}, {"id": 10, "text": "講義の定義で 1KB は何バイトか。", "explanation": "1KB=1024B(=2^10 B)。", "options": [{"text": "100バイト", "correct": false, "order": 1}, {"text": "1024バイト", "correct": true, "order": 2}, {"text": "8バイト", "correct": false, "order": 3}, {"text": "1000バイト", "correct": false, "order": 4}]}, {"id": 11, "text": "32KB をバイトに変換した値はどれか(1KB=1024B)。", "explanation": "32×1024 = 32768 B。", "options": [{"text": "3200 B", "correct": false, "order": 1}, {"text": "32000 B", "correct": false, "order": 2}, {"text": "32768 B", "correct": true, "order": 3}, {"text": "320000 B", "correct": false, "order": 4}]}, {"id": 12, "text": "3584KB を MB に変換した値はどれか(1MB=1024KB)。", "explanation": "3584÷1024 = 3.5 MB。", "options": [{"text": "358.4 MB", "correct": false, "order": 1}, {"text": "3.5 MB", "correct": true, "order": 2}, {"text": "0.35 MB", "correct": false, "order": 3}, {"text": "35 MB", "correct": false, "order": 4}]}, {"id": 13, "text": "次のうちデジタル量の機器の例として講義で挙げられたものはどれか。", "explanation": "デジタル:デジタル時計・デジタル体温計・デジタルカメラ・CD・デジタル体重計。", "options": [{"text": "LPレコード", "correct": false, "order": 1}, {"text": "フィルムカメラ", "correct": false, "order": 2}, {"text": "水銀体温計", "correct": false, "order": 3}, {"text": "デジタル時計", "correct": true, "order": 4}]}, {"id": 14, "text": "次のうちアナログ量の機器の例として講義で挙げられたものはどれか。", "explanation": "アナログ:アナログ時計・水銀体温計・フィルムカメラ・LPレコード・アナログ体重計。", "options": [{"text": "デジタルカメラ", "correct": false, "order": 1}, {"text": "デジタル体温計", "correct": false, "order": 2}, {"text": "CD", "correct": false, "order": 3}, {"text": "LPレコード", "correct": true, "order": 4}]}, {"id": 15, "text": "2進数 11111 を10進数で表した値はどれか。", "explanation": "16+8+4+2+1 = 31。", "options": [{"text": "63", "correct": false, "order": 1}, {"text": "32", "correct": false, "order": 2}, {"text": "15", "correct": false, "order": 3}, {"text": "31", "correct": true, "order": 4}]}, {"id": 16, "text": "10進数 31 を2進数で表したものはどれか。", "explanation": "31 = 16+8+4+2+1 = 11111(2)。", "options": [{"text": "11111", "correct": true, "order": 1}, {"text": "10111", "correct": false, "order": 2}, {"text": "11011", "correct": false, "order": 3}, {"text": "11110", "correct": false, "order": 4}]}, {"id": 17, "text": "10進数 17 を2進数で表したものはどれか。", "explanation": "17 = 16+1 = 10001(2)。", "options": [{"text": "11001", "correct": false, "order": 1}, {"text": "10001", "correct": true, "order": 2}, {"text": "10011", "correct": false, "order": 3}, {"text": "10101", "correct": false, "order": 4}]}, {"id": 18, "text": "10進数 18 を2進数で表したものはどれか。", "explanation": "18 = 16+2 = 10010(2)。", "options": [{"text": "10010", "correct": true, "order": 1}, {"text": "10001", "correct": false, "order": 2}, {"text": "10100", "correct": false, "order": 3}, {"text": "11000", "correct": false, "order": 4}]}, {"id": 19, "text": "2進数 10000 を10進数で表した値はどれか。", "explanation": "1×2^4 = 16。", "options": [{"text": "32", "correct": false, "order": 1}, {"text": "16", "correct": true, "order": 2}, {"text": "4", "correct": false, "order": 3}, {"text": "8", "correct": false, "order": 4}]}, {"id": 20, "text": "3ビットで表現できる整数の範囲として正しいものはどれか。", "explanation": "3ビットで0〜7(=2^3−1)。", "options": [{"text": "0〜7", "correct": true, "order": 1}, {"text": "0〜15", "correct": false, "order": 2}, {"text": "0〜3", "correct": false, "order": 3}, {"text": "0〜8", "correct": false, "order": 4}]}, {"id": 21, "text": "1MB は何KBか。", "explanation": "1MB=1024KB(=2^10 KB)。", "options": [{"text": "8KB", "correct": false, "order": 1}, {"text": "1000KB", "correct": false, "order": 2}, {"text": "100KB", "correct": false, "order": 3}, {"text": "1024KB", "correct": true, "order": 4}]}, {"id": 22, "text": "1GB は何MBか。", "explanation": "1GB=1024MB(=2^10 MB)。", "options": [{"text": "1000MB", "correct": false, "order": 1}, {"text": "8MB", "correct": false, "order": 2}, {"text": "100MB", "correct": false, "order": 3}, {"text": "1024MB", "correct": true, "order": 4}]}, {"id": 23, "text": "デジタル技術が浸透した現代の社会を、講義では何と呼んでいるか。", "explanation": "現代は情報社会(デジタル社会)と呼ばれる。", "options": [{"text": "工業社会", "correct": false, "order": 1}, {"text": "情報社会(デジタル社会)", "correct": true, "order": 2}, {"text": "農業社会", "correct": false, "order": 3}, {"text": "狩猟社会", "correct": false, "order": 4}]}, {"id": 24, "text": "コンピュータが0と1のみでデータを表現するのに用いる記数法はどれか。", "explanation": "コンピュータは0と1のみ、すなわち2進法でデータを表現する。", "options": [{"text": "16進法", "correct": false, "order": 1}, {"text": "8進法", "correct": false, "order": 2}, {"text": "10進法", "correct": false, "order": 3}, {"text": "2進法", "correct": true, "order": 4}]}];
+
+let sessionQuestions = [];
+let answers = {};
+let current = 0;
+let lastSettings = {shuffleQuestions:false, shuffleOptions:false};
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function makeSession(){
+  lastSettings = {
+    shuffleQuestions: document.getElementById('shuffleQuestions').checked,
+    shuffleOptions: document.getElementById('shuffleOptions').checked
+  };
+  sessionQuestions = SOURCE_QUESTIONS.map(q => ({
+    ...q,
+    options: lastSettings.shuffleOptions ? shuffle(q.options) : q.options.map(o=>({...o}))
+  }));
+  if(lastSettings.shuffleQuestions) sessionQuestions = shuffle(sessionQuestions);
+  answers = {};
+  current = 0;
+}
+
+function startQuiz(){
+  makeSession();
+  document.getElementById('settingsCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('quizCard').classList.remove('hidden');
+  buildJump();
+  render();
+}
+
+function render(){
+  const q = sessionQuestions[current];
+  document.getElementById('currentNo').textContent = current+1;
+  document.getElementById('totalNo').textContent = sessionQuestions.length;
+  document.getElementById('progressBar').style.width = ((current+1)/sessionQuestions.length*100)+'%';
+  document.getElementById('qnum').textContent = `問題 ${current+1}`;
+  document.getElementById('question').textContent = q.text;
+
+  const optionArea = document.getElementById('options');
+  optionArea.innerHTML = '';
+  const selected = answers[q.id];
+
+  q.options.forEach((opt, idx) => {
+    const b = document.createElement('button');
+    b.className = 'option';
+    const label = String.fromCharCode(65+idx);
+    b.innerHTML = `<span class="choice-label">${label}</span><span></span>`;
+    b.querySelector('span:last-child').textContent = opt.text;
+    if(selected !== undefined){
+      if(opt.correct) b.classList.add('correct');
+      if(selected === opt.text && !opt.correct) b.classList.add('wrong');
+      if(selected === opt.text) b.classList.add('selected');
+    }
+    b.addEventListener('click', ()=>selectAnswer(q, opt.text));
+    optionArea.appendChild(b);
+  });
+
+  renderFeedback(q);
+  document.getElementById('prevBtn').disabled = current===0;
+  document.getElementById('nextBtn').textContent = current===sessionQuestions.length-1 ? '結果を見る' : '次の問題 →';
+  updateStats();
+  updateJump();
+}
+
+function selectAnswer(q, answerText){
+  answers[q.id] = answerText;
+  render();
+}
+
+function renderFeedback(q){
+  const box = document.getElementById('feedback');
+  const selected = answers[q.id];
+  if(selected === undefined){
+    box.className='feedback';
+    box.innerHTML='';
+    return;
+  }
+  const opt=q.options.find(o=>o.text===selected);
+  const ok=!!opt?.correct;
+  box.className='feedback show '+(ok?'ok':'ng');
+  const correctOpt=q.options.find(o=>o.correct);
+  const head=ok?'正解です。':'不正解です。';
+  box.innerHTML='';
+  const strong=document.createElement('strong');
+  strong.textContent=head;
+  box.appendChild(strong);
+  if(!ok){
+    const c=document.createElement('div');
+    c.textContent='正解：'+(correctOpt ? correctOpt.text : '');
+    box.appendChild(c);
+  }
+  const e=document.createElement('div');
+  e.className='explain';
+  e.textContent='解説：'+q.explanation;
+  box.appendChild(e);
+}
+
+function updateStats(){
+  let answered=0, correct=0;
+  sessionQuestions.forEach(q=>{
+    if(answers[q.id]!==undefined){
+      answered++;
+      const o=q.options.find(x=>x.text===answers[q.id]);
+      if(o?.correct) correct++;
+    }
+  });
+  document.getElementById('answeredCount').textContent=answered;
+  document.getElementById('correctCount').textContent=correct;
+}
+
+function buildJump(){
+  const box=document.getElementById('jump');
+  box.innerHTML='';
+  sessionQuestions.forEach((q,i)=>{
+    const b=document.createElement('button');
+    b.textContent=i+1;
+    b.title=`問題 ${i+1}へ`;
+    b.addEventListener('click',()=>{current=i;render();});
+    box.appendChild(b);
+  });
+}
+
+function updateJump(){
+  const btns=[...document.querySelectorAll('#jump button')];
+  btns.forEach((b,i)=>{
+    b.classList.toggle('current',i===current);
+    b.classList.toggle('answered',answers[sessionQuestions[i].id]!==undefined);
+  });
+}
+
+function showResult(){
+  let correct=0;
+  sessionQuestions.forEach(q=>{
+    const o=q.options.find(x=>x.text===answers[q.id]);
+    if(o?.correct) correct++;
+  });
+  document.getElementById('quizCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.remove('hidden');
+  document.getElementById('resultScore').textContent=correct;
+  const pct=Math.round(correct/sessionQuestions.length*100);
+  document.getElementById('resultPercent').textContent=`正答率 ${pct}%（未回答も不正解として集計）`;
+  const list=document.getElementById('resultList');
+  list.innerHTML='';
+  sessionQuestions.forEach((q,i)=>{
+    const selected=answers[q.id];
+    const selectedOpt=q.options.find(x=>x.text===selected);
+    const ok=!!selectedOpt?.correct;
+    const correctOpt=q.options.find(x=>x.correct);
+    const row=document.createElement('div');
+    row.className='result-row';
+    const status=document.createElement('b');
+    status.className=ok?'ok':'ng';
+    status.textContent=ok?'○':'×';
+    row.appendChild(status);
+    row.appendChild(document.createTextNode(` 問題${i+1}：${q.text}`));
+    const detail=document.createElement('div');
+    detail.className='small';
+    detail.textContent=`あなたの回答：${selected ?? '未回答'} ／ 正解：${correctOpt?.text ?? ''}`;
+    row.appendChild(detail);
+    list.appendChild(row);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function backToSettings(){
+  document.getElementById('quizCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('settingsCard').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.getElementById('startBtn').addEventListener('click',startQuiz);
+document.getElementById('prevBtn').addEventListener('click',()=>{if(current>0){current--;render();window.scrollTo({top:0,behavior:'smooth'});}});
+document.getElementById('nextBtn').addEventListener('click',()=>{if(current<sessionQuestions.length-1){current++;render();window.scrollTo({top:0,behavior:'smooth'});}else{showResult();}});
+document.getElementById('restartBtn').addEventListener('click',backToSettings);
+document.getElementById('backSettingsBtn').addEventListener('click',backToSettings);
+document.getElementById('retryBtn').addEventListener('click',()=>{
+  document.getElementById('shuffleQuestions').checked=lastSettings.shuffleQuestions;
+  document.getElementById('shuffleOptions').checked=lastSettings.shuffleOptions;
+  startQuiz();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+</script>
+</body>
+</html>

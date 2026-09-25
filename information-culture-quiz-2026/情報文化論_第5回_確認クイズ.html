@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>情報文化論 第5回 確認クイズ</title>
+<style>
+  :root {
+    --bg:#f5f7fb; --card:#ffffff; --text:#172033; --muted:#687386;
+    --accent:#315efb; --accent-soft:#eaf0ff; --ok:#147a4a; --ok-bg:#eaf8f1;
+    --ng:#c23838; --ng-bg:#fff0f0; --border:#dce2ec; --shadow:0 10px 30px rgba(28,40,72,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;line-height:1.65}
+  .wrap{max-width:920px;margin:0 auto;padding:24px 16px 64px}
+  header{margin-bottom:18px}
+  h1{font-size:clamp(1.55rem,3vw,2.15rem);margin:.15em 0 .1em}
+  .sub{color:var(--muted);margin:0}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:clamp(18px,4vw,34px);margin-top:18px}
+  .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+  .toggle{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:12px;padding:14px;background:#fbfcff;cursor:pointer}
+  .toggle input{width:20px;height:20px;accent-color:var(--accent)}
+  .btn{appearance:none;border:0;border-radius:11px;padding:12px 18px;font-size:1rem;font-weight:700;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.secondary{background:#eef1f6;color:var(--text)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .progress-meta{font-weight:700}
+  .score{color:var(--muted)}
+  .progress{height:10px;background:#e8ebf1;border-radius:999px;overflow:hidden;margin:14px 0 6px}
+  .progress > div{height:100%;width:0;background:var(--accent);transition:width .2s ease}
+  .qnum{color:var(--accent);font-weight:800;margin:18px 0 4px}
+  .question{font-size:clamp(1.12rem,2.2vw,1.36rem);font-weight:750;margin:0 0 18px}
+  .options{display:grid;gap:11px}
+  .option{width:100%;text-align:left;border:2px solid var(--border);background:#fff;border-radius:13px;padding:14px 16px;font-size:1rem;cursor:pointer;transition:.12s}
+  .option:hover{border-color:#aab8e9;background:#fafbff}
+  .option.selected{border-color:var(--accent);background:var(--accent-soft)}
+  .option.correct{border-color:var(--ok);background:var(--ok-bg)}
+  .option.wrong{border-color:var(--ng);background:var(--ng-bg)}
+  .choice-label{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#eef1f6;font-weight:800;margin-right:10px}
+  .feedback{margin-top:18px;border-radius:13px;padding:15px 16px;display:none}
+  .feedback.show{display:block}
+  .feedback.ok{background:var(--ok-bg);border:1px solid #b9e4cf}
+  .feedback.ng{background:var(--ng-bg);border:1px solid #f0c6c6}
+  .feedback strong{display:block;margin-bottom:3px}
+  .explain{margin-top:8px;color:#374155}
+  .nav{display:flex;justify-content:space-between;gap:10px;margin-top:22px}
+  .nav .right{display:flex;gap:10px}
+  .jump{display:flex;flex-wrap:wrap;gap:7px;margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
+  .jump button{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:650}
+  .jump button.current{outline:2px solid var(--accent);outline-offset:1px}
+  .jump button.answered{background:#eef3ff;border-color:#afc0ff}
+  .result{text-align:center}
+  .result .big{font-size:clamp(2.2rem,8vw,4.2rem);font-weight:900;color:var(--accent);line-height:1.1;margin:12px 0}
+  .result-note{color:var(--muted)}
+  .result-list{margin-top:24px;text-align:left}
+  .result-row{border-top:1px solid var(--border);padding:12px 0}
+  .result-row b.ok{color:var(--ok)} .result-row b.ng{color:var(--ng)}
+  .small{font-size:.9rem;color:var(--muted)}
+  .hidden{display:none!important}
+  @media(max-width:640px){.settings-grid{grid-template-columns:1fr}.nav{align-items:stretch}.nav,.nav .right{flex-direction:column}.btn{width:100%}}
+  @media print{body{background:#fff}.wrap{max-width:none}.card{box-shadow:none}.settings,.nav,.jump{display:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>情報文化論 第5回 確認クイズ</h1>
+    <p class="sub">全20問。選択後すぐに正誤と解説を確認できます。回答は何度でも選び直せます。</p>
+  </header>
+
+  <section id="settingsCard" class="card settings">
+    <h2 style="margin-top:0">開始設定</h2>
+    <p>シャッフルしたい項目だけONにしてください。開始するたびに新しく並び替えます。</p>
+    <div class="settings-grid">
+      <label class="toggle"><input id="shuffleQuestions" type="checkbox"> <span><b>問題順をランダム</b><br><span class="small">問題の出題順を毎回シャッフル</span></span></label>
+      <label class="toggle"><input id="shuffleOptions" type="checkbox"> <span><b>選択肢順をランダム</b><br><span class="small">各問題の4つの選択肢をシャッフル</span></span></label>
+    </div>
+    <button id="startBtn" class="btn primary">クイズを開始</button>
+  </section>
+
+  <section id="quizCard" class="card hidden">
+    <div class="topbar">
+      <div class="progress-meta"><span id="currentNo">1</span> / <span id="totalNo">20</span></div>
+      <div class="score">回答済み <b id="answeredCount">0</b>問　現在の正解 <b id="correctCount">0</b>問</div>
+    </div>
+    <div class="progress"><div id="progressBar"></div></div>
+    <div id="qnum" class="qnum"></div>
+    <div id="question" class="question"></div>
+    <div id="options" class="options"></div>
+    <div id="feedback" class="feedback"></div>
+    <div class="nav">
+      <button id="prevBtn" class="btn secondary">← 前の問題</button>
+      <div class="right">
+        <button id="restartBtn" class="btn secondary">設定を変えて最初から</button>
+        <button id="nextBtn" class="btn primary">次の問題 →</button>
+      </div>
+    </div>
+    <div id="jump" class="jump"></div>
+  </section>
+
+  <section id="resultCard" class="card result hidden">
+    <h2>結果</h2>
+    <div class="big"><span id="resultScore"></span> / 20</div>
+    <p id="resultPercent" class="result-note"></p>
+    <button id="retryBtn" class="btn primary">同じ設定でもう一度</button>
+    <button id="backSettingsBtn" class="btn secondary" style="margin-left:8px">設定を変更</button>
+    <div id="resultList" class="result-list"></div>
+  </section>
+</div>
+
+<script>
+const SOURCE_QUESTIONS = [{"id": 1, "text": "文字化けが起こる主な原因として正しいものはどれか。", "explanation": "UTF-8で書いた文字をShift-JISで読むなど、文字コードの不一致が原因。", "options": [{"text": "画面の解像度が低いため", "correct": false, "order": 1}, {"text": "フォントの色が黒いため", "correct": false, "order": 2}, {"text": "文字を書いたときと読むときの文字コードが異なるため", "correct": true, "order": 3}, {"text": "通信速度が遅いため", "correct": false, "order": 4}]}, {"id": 2, "text": "デジタル画像の最小単位を指す語はどれか。", "explanation": "画素(ピクセル)はデジタル画像の最小単位。1つ1つに1つの色情報が入る。", "options": [{"text": "画素(ピクセル)", "correct": true, "order": 1}, {"text": "カラーチャンネル", "correct": false, "order": 2}, {"text": "フレーム", "correct": false, "order": 3}, {"text": "解像度", "correct": false, "order": 4}]}, {"id": 3, "text": "ディスプレイの総画素数の求め方として正しいものはどれか。", "explanation": "総画素数=横の画素数×縦の画素数。", "options": [{"text": "画面の対角線の長さ", "correct": false, "order": 1}, {"text": "横の画素数 + 縦の画素数", "correct": false, "order": 2}, {"text": "横の画素数 × 縦の画素数", "correct": true, "order": 3}, {"text": "横の長さ ÷ 縦の長さ", "correct": false, "order": 4}]}, {"id": 4, "text": "加法三原色(光の三原色)の組み合わせとして正しいものはどれか。", "explanation": "加法三原色はRGB(赤・緑・青)。RGBカラーとも言う。", "options": [{"text": "シアン・マゼンタ・イエロー", "correct": false, "order": 1}, {"text": "白・黒・灰", "correct": false, "order": 2}, {"text": "赤・黄・青", "correct": false, "order": 3}, {"text": "赤(R)・緑(G)・青(B)", "correct": true, "order": 4}]}, {"id": 5, "text": "加法三原色の光をすべて混ぜ合わせると何色になるか。", "explanation": "光の三原色を混ぜると白色になる(加法混色)。", "options": [{"text": "黒色", "correct": false, "order": 1}, {"text": "白色", "correct": true, "order": 2}, {"text": "灰色", "correct": false, "order": 3}, {"text": "赤色", "correct": false, "order": 4}]}, {"id": 6, "text": "減法三原色(色の三原色)に黒(ブラック)を加えた表現はどれか。", "explanation": "減法三原色はCMY(シアン・マゼンタ・イエロー)、黒を加えてCMYK。", "options": [{"text": "グレースケール", "correct": false, "order": 1}, {"text": "RGBカラー", "correct": false, "order": 2}, {"text": "HSVカラー", "correct": false, "order": 3}, {"text": "CMYKカラー", "correct": true, "order": 4}]}, {"id": 7, "text": "減法三原色の絵の具やインキをすべて混ぜ合わせると何色になるか。", "explanation": "色の三原色(絵の具・インキ)を混ぜると黒色になる(減法混色)。", "options": [{"text": "白色", "correct": false, "order": 1}, {"text": "透明", "correct": false, "order": 2}, {"text": "黒色", "correct": true, "order": 3}, {"text": "赤色", "correct": false, "order": 4}]}, {"id": 8, "text": "RGB形式で各成分(R・G・B)は何階調・何ビットで表現されるか。", "explanation": "各成分は256階調(8ビット)、0〜255の数値で表現。", "options": [{"text": "128階調・7ビット", "correct": false, "order": 1}, {"text": "256階調・8ビット(0〜255)", "correct": true, "order": 2}, {"text": "1024階調・10ビット", "correct": false, "order": 3}, {"text": "16階調・4ビット", "correct": false, "order": 4}]}, {"id": 9, "text": "R・G・Bを各256階調で表したとき、合成できる色数はいくつか。", "explanation": "256×256×256 = 16,777,216色。", "options": [{"text": "65,536色", "correct": false, "order": 1}, {"text": "256色", "correct": false, "order": 2}, {"text": "16,777,216色", "correct": true, "order": 3}, {"text": "1,000,000色", "correct": false, "order": 4}]}, {"id": 10, "text": "R・G・Bを各8ビット、合計24ビットで表現する方式の呼び名はどれか。", "explanation": "24ビット表現=True Color。", "options": [{"text": "モノクロ", "correct": false, "order": 1}, {"text": "グレースケール", "correct": false, "order": 2}, {"text": "True Color(トゥルーカラー)", "correct": true, "order": 3}, {"text": "インデックスカラー", "correct": false, "order": 4}]}, {"id": 11, "text": "フルカラーのカラーモードでは、ソース画像を何枚のカラーフィルタで分けてデータを取るか。", "explanation": "フルカラーはR・G・B 3枚のフィルタで分けてカラーデータを取る。", "options": [{"text": "4枚", "correct": false, "order": 1}, {"text": "1枚", "correct": false, "order": 2}, {"text": "2枚", "correct": false, "order": 3}, {"text": "R・G・Bの3枚", "correct": true, "order": 4}]}, {"id": 12, "text": "分解されたR・G・Bごとのカラーデータを何と呼ぶか。", "explanation": "R・G・B毎のカラーデータがカラーチャンネル。", "options": [{"text": "フレーム", "correct": false, "order": 1}, {"text": "カラーチャンネル", "correct": true, "order": 2}, {"text": "ピクセル", "correct": false, "order": 3}, {"text": "解像度", "correct": false, "order": 4}]}, {"id": 13, "text": "フルカラーのデジタル画像がもつチャンネルの数はいくつか。", "explanation": "フルカラーはR・G・Bの3枚のチャンネルを持つ。", "options": [{"text": "3枚", "correct": true, "order": 1}, {"text": "4枚", "correct": false, "order": 2}, {"text": "1枚", "correct": false, "order": 3}, {"text": "2枚", "correct": false, "order": 4}]}, {"id": 14, "text": "加法三原色(RGB)が元となる混色を何というか。", "explanation": "舞台照明やカラーモニタなど、色光の配合=加法混色。", "options": [{"text": "加法混色", "correct": true, "order": 1}, {"text": "減法混色", "correct": false, "order": 2}, {"text": "補色混合", "correct": false, "order": 3}, {"text": "蛍光混色", "correct": false, "order": 4}]}, {"id": 15, "text": "減法三原色(CMY)が元となる混色を何というか。", "explanation": "絵の具や印刷インキの配合=減法混色。混ぜると黒になる。", "options": [{"text": "発光混色", "correct": false, "order": 1}, {"text": "加法混色", "correct": false, "order": 2}, {"text": "減法混色", "correct": true, "order": 3}, {"text": "加色混合", "correct": false, "order": 4}]}, {"id": 16, "text": "RGBで黒色を表す16進数表現はどれか。", "explanation": "黒=0.0.0=#000000。", "options": [{"text": "#FFFFFF", "correct": false, "order": 1}, {"text": "#FF0000", "correct": false, "order": 2}, {"text": "#00FF00", "correct": false, "order": 3}, {"text": "#000000", "correct": true, "order": 4}]}, {"id": 17, "text": "RGBで赤色を表す16進数表現はどれか。", "explanation": "赤=255.0.0=#FF0000。", "options": [{"text": "#FFFF00", "correct": false, "order": 1}, {"text": "#00FF00", "correct": false, "order": 2}, {"text": "#FF0000", "correct": true, "order": 3}, {"text": "#0000FF", "correct": false, "order": 4}]}, {"id": 18, "text": "RGBで白色を表す表現として正しいものはどれか。", "explanation": "白=255.255.255=#FFFFFF。", "options": [{"text": "0.0.255(#0000FF)", "correct": false, "order": 1}, {"text": "255.255.255(#FFFFFF)", "correct": true, "order": 2}, {"text": "255.0.0(#FF0000)", "correct": false, "order": 3}, {"text": "0.0.0(#000000)", "correct": false, "order": 4}]}, {"id": 19, "text": "デジタル化以前のソース画像は、何によってピクセル単位にカラーが抽出・平均化されるか。", "explanation": "標本化によってピクセル単位にカラーが抽出され平均化される。", "options": [{"text": "圧縮", "correct": false, "order": 1}, {"text": "暗号化", "correct": false, "order": 2}, {"text": "符号化", "correct": false, "order": 3}, {"text": "標本化", "correct": true, "order": 4}]}, {"id": 20, "text": "RGB形式で各色(R・G・B)の階調数はいくつか。", "explanation": "各成分は256階調(8ビット)、0〜255で表現。", "options": [{"text": "512階調", "correct": false, "order": 1}, {"text": "128階調", "correct": false, "order": 2}, {"text": "256階調", "correct": true, "order": 3}, {"text": "1024階調", "correct": false, "order": 4}]}];
+
+let sessionQuestions = [];
+let answers = {};
+let current = 0;
+let lastSettings = {shuffleQuestions:false, shuffleOptions:false};
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function makeSession(){
+  lastSettings = {
+    shuffleQuestions: document.getElementById('shuffleQuestions').checked,
+    shuffleOptions: document.getElementById('shuffleOptions').checked
+  };
+  sessionQuestions = SOURCE_QUESTIONS.map(q => ({
+    ...q,
+    options: lastSettings.shuffleOptions ? shuffle(q.options) : q.options.map(o=>({...o}))
+  }));
+  if(lastSettings.shuffleQuestions) sessionQuestions = shuffle(sessionQuestions);
+  answers = {};
+  current = 0;
+}
+
+function startQuiz(){
+  makeSession();
+  document.getElementById('settingsCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('quizCard').classList.remove('hidden');
+  buildJump();
+  render();
+}
+
+function render(){
+  const q = sessionQuestions[current];
+  document.getElementById('currentNo').textContent = current+1;
+  document.getElementById('totalNo').textContent = sessionQuestions.length;
+  document.getElementById('progressBar').style.width = ((current+1)/sessionQuestions.length*100)+'%';
+  document.getElementById('qnum').textContent = `問題 ${current+1}`;
+  document.getElementById('question').textContent = q.text;
+
+  const optionArea = document.getElementById('options');
+  optionArea.innerHTML = '';
+  const selected = answers[q.id];
+
+  q.options.forEach((opt, idx) => {
+    const b = document.createElement('button');
+    b.className = 'option';
+    const label = String.fromCharCode(65+idx);
+    b.innerHTML = `<span class="choice-label">${label}</span><span></span>`;
+    b.querySelector('span:last-child').textContent = opt.text;
+    if(selected !== undefined){
+      if(opt.correct) b.classList.add('correct');
+      if(selected === opt.text && !opt.correct) b.classList.add('wrong');
+      if(selected === opt.text) b.classList.add('selected');
+    }
+    b.addEventListener('click', ()=>selectAnswer(q, opt.text));
+    optionArea.appendChild(b);
+  });
+
+  renderFeedback(q);
+  document.getElementById('prevBtn').disabled = current===0;
+  document.getElementById('nextBtn').textContent = current===sessionQuestions.length-1 ? '結果を見る' : '次の問題 →';
+  updateStats();
+  updateJump();
+}
+
+function selectAnswer(q, answerText){
+  answers[q.id] = answerText;
+  render();
+}
+
+function renderFeedback(q){
+  const box = document.getElementById('feedback');
+  const selected = answers[q.id];
+  if(selected === undefined){
+    box.className='feedback';
+    box.innerHTML='';
+    return;
+  }
+  const opt=q.options.find(o=>o.text===selected);
+  const ok=!!opt?.correct;
+  box.className='feedback show '+(ok?'ok':'ng');
+  const correctOpt=q.options.find(o=>o.correct);
+  const head=ok?'正解です。':'不正解です。';
+  box.innerHTML='';
+  const strong=document.createElement('strong');
+  strong.textContent=head;
+  box.appendChild(strong);
+  if(!ok){
+    const c=document.createElement('div');
+    c.textContent='正解：'+(correctOpt ? correctOpt.text : '');
+    box.appendChild(c);
+  }
+  const e=document.createElement('div');
+  e.className='explain';
+  e.textContent='解説：'+q.explanation;
+  box.appendChild(e);
+}
+
+function updateStats(){
+  let answered=0, correct=0;
+  sessionQuestions.forEach(q=>{
+    if(answers[q.id]!==undefined){
+      answered++;
+      const o=q.options.find(x=>x.text===answers[q.id]);
+      if(o?.correct) correct++;
+    }
+  });
+  document.getElementById('answeredCount').textContent=answered;
+  document.getElementById('correctCount').textContent=correct;
+}
+
+function buildJump(){
+  const box=document.getElementById('jump');
+  box.innerHTML='';
+  sessionQuestions.forEach((q,i)=>{
+    const b=document.createElement('button');
+    b.textContent=i+1;
+    b.title=`問題 ${i+1}へ`;
+    b.addEventListener('click',()=>{current=i;render();});
+    box.appendChild(b);
+  });
+}
+
+function updateJump(){
+  const btns=[...document.querySelectorAll('#jump button')];
+  btns.forEach((b,i)=>{
+    b.classList.toggle('current',i===current);
+    b.classList.toggle('answered',answers[sessionQuestions[i].id]!==undefined);
+  });
+}
+
+function showResult(){
+  let correct=0;
+  sessionQuestions.forEach(q=>{
+    const o=q.options.find(x=>x.text===answers[q.id]);
+    if(o?.correct) correct++;
+  });
+  document.getElementById('quizCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.remove('hidden');
+  document.getElementById('resultScore').textContent=correct;
+  const pct=Math.round(correct/sessionQuestions.length*100);
+  document.getElementById('resultPercent').textContent=`正答率 ${pct}%（未回答も不正解として集計）`;
+  const list=document.getElementById('resultList');
+  list.innerHTML='';
+  sessionQuestions.forEach((q,i)=>{
+    const selected=answers[q.id];
+    const selectedOpt=q.options.find(x=>x.text===selected);
+    const ok=!!selectedOpt?.correct;
+    const correctOpt=q.options.find(x=>x.correct);
+    const row=document.createElement('div');
+    row.className='result-row';
+    const status=document.createElement('b');
+    status.className=ok?'ok':'ng';
+    status.textContent=ok?'○':'×';
+    row.appendChild(status);
+    row.appendChild(document.createTextNode(` 問題${i+1}：${q.text}`));
+    const detail=document.createElement('div');
+    detail.className='small';
+    detail.textContent=`あなたの回答：${selected ?? '未回答'} ／ 正解：${correctOpt?.text ?? ''}`;
+    row.appendChild(detail);
+    list.appendChild(row);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function backToSettings(){
+  document.getElementById('quizCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('settingsCard').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.getElementById('startBtn').addEventListener('click',startQuiz);
+document.getElementById('prevBtn').addEventListener('click',()=>{if(current>0){current--;render();window.scrollTo({top:0,behavior:'smooth'});}});
+document.getElementById('nextBtn').addEventListener('click',()=>{if(current<sessionQuestions.length-1){current++;render();window.scrollTo({top:0,behavior:'smooth'});}else{showResult();}});
+document.getElementById('restartBtn').addEventListener('click',backToSettings);
+document.getElementById('backSettingsBtn').addEventListener('click',backToSettings);
+document.getElementById('retryBtn').addEventListener('click',()=>{
+  document.getElementById('shuffleQuestions').checked=lastSettings.shuffleQuestions;
+  document.getElementById('shuffleOptions').checked=lastSettings.shuffleOptions;
+  startQuiz();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+</script>
+</body>
+</html>

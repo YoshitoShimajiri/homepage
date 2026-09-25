@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>情報文化論 第7回 確認クイズ</title>
+<style>
+  :root {
+    --bg:#f5f7fb; --card:#ffffff; --text:#172033; --muted:#687386;
+    --accent:#315efb; --accent-soft:#eaf0ff; --ok:#147a4a; --ok-bg:#eaf8f1;
+    --ng:#c23838; --ng-bg:#fff0f0; --border:#dce2ec; --shadow:0 10px 30px rgba(28,40,72,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;line-height:1.65}
+  .wrap{max-width:920px;margin:0 auto;padding:24px 16px 64px}
+  header{margin-bottom:18px}
+  h1{font-size:clamp(1.55rem,3vw,2.15rem);margin:.15em 0 .1em}
+  .sub{color:var(--muted);margin:0}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:clamp(18px,4vw,34px);margin-top:18px}
+  .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+  .toggle{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:12px;padding:14px;background:#fbfcff;cursor:pointer}
+  .toggle input{width:20px;height:20px;accent-color:var(--accent)}
+  .btn{appearance:none;border:0;border-radius:11px;padding:12px 18px;font-size:1rem;font-weight:700;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.secondary{background:#eef1f6;color:var(--text)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .progress-meta{font-weight:700}
+  .score{color:var(--muted)}
+  .progress{height:10px;background:#e8ebf1;border-radius:999px;overflow:hidden;margin:14px 0 6px}
+  .progress > div{height:100%;width:0;background:var(--accent);transition:width .2s ease}
+  .qnum{color:var(--accent);font-weight:800;margin:18px 0 4px}
+  .question{font-size:clamp(1.12rem,2.2vw,1.36rem);font-weight:750;margin:0 0 18px}
+  .options{display:grid;gap:11px}
+  .option{width:100%;text-align:left;border:2px solid var(--border);background:#fff;border-radius:13px;padding:14px 16px;font-size:1rem;cursor:pointer;transition:.12s}
+  .option:hover{border-color:#aab8e9;background:#fafbff}
+  .option.selected{border-color:var(--accent);background:var(--accent-soft)}
+  .option.correct{border-color:var(--ok);background:var(--ok-bg)}
+  .option.wrong{border-color:var(--ng);background:var(--ng-bg)}
+  .choice-label{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#eef1f6;font-weight:800;margin-right:10px}
+  .feedback{margin-top:18px;border-radius:13px;padding:15px 16px;display:none}
+  .feedback.show{display:block}
+  .feedback.ok{background:var(--ok-bg);border:1px solid #b9e4cf}
+  .feedback.ng{background:var(--ng-bg);border:1px solid #f0c6c6}
+  .feedback strong{display:block;margin-bottom:3px}
+  .explain{margin-top:8px;color:#374155}
+  .nav{display:flex;justify-content:space-between;gap:10px;margin-top:22px}
+  .nav .right{display:flex;gap:10px}
+  .jump{display:flex;flex-wrap:wrap;gap:7px;margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
+  .jump button{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:650}
+  .jump button.current{outline:2px solid var(--accent);outline-offset:1px}
+  .jump button.answered{background:#eef3ff;border-color:#afc0ff}
+  .result{text-align:center}
+  .result .big{font-size:clamp(2.2rem,8vw,4.2rem);font-weight:900;color:var(--accent);line-height:1.1;margin:12px 0}
+  .result-note{color:var(--muted)}
+  .result-list{margin-top:24px;text-align:left}
+  .result-row{border-top:1px solid var(--border);padding:12px 0}
+  .result-row b.ok{color:var(--ok)} .result-row b.ng{color:var(--ng)}
+  .small{font-size:.9rem;color:var(--muted)}
+  .hidden{display:none!important}
+  @media(max-width:640px){.settings-grid{grid-template-columns:1fr}.nav{align-items:stretch}.nav,.nav .right{flex-direction:column}.btn{width:100%}}
+  @media print{body{background:#fff}.wrap{max-width:none}.card{box-shadow:none}.settings,.nav,.jump{display:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>情報文化論 第7回 確認クイズ</h1>
+    <p class="sub">全30問。選択後すぐに正誤と解説を確認できます。回答は何度でも選び直せます。</p>
+  </header>
+
+  <section id="settingsCard" class="card settings">
+    <h2 style="margin-top:0">開始設定</h2>
+    <p>シャッフルしたい項目だけONにしてください。開始するたびに新しく並び替えます。</p>
+    <div class="settings-grid">
+      <label class="toggle"><input id="shuffleQuestions" type="checkbox"> <span><b>問題順をランダム</b><br><span class="small">問題の出題順を毎回シャッフル</span></span></label>
+      <label class="toggle"><input id="shuffleOptions" type="checkbox"> <span><b>選択肢順をランダム</b><br><span class="small">各問題の4つの選択肢をシャッフル</span></span></label>
+    </div>
+    <button id="startBtn" class="btn primary">クイズを開始</button>
+  </section>
+
+  <section id="quizCard" class="card hidden">
+    <div class="topbar">
+      <div class="progress-meta"><span id="currentNo">1</span> / <span id="totalNo">30</span></div>
+      <div class="score">回答済み <b id="answeredCount">0</b>問　現在の正解 <b id="correctCount">0</b>問</div>
+    </div>
+    <div class="progress"><div id="progressBar"></div></div>
+    <div id="qnum" class="qnum"></div>
+    <div id="question" class="question"></div>
+    <div id="options" class="options"></div>
+    <div id="feedback" class="feedback"></div>
+    <div class="nav">
+      <button id="prevBtn" class="btn secondary">← 前の問題</button>
+      <div class="right">
+        <button id="restartBtn" class="btn secondary">設定を変えて最初から</button>
+        <button id="nextBtn" class="btn primary">次の問題 →</button>
+      </div>
+    </div>
+    <div id="jump" class="jump"></div>
+  </section>
+
+  <section id="resultCard" class="card result hidden">
+    <h2>結果</h2>
+    <div class="big"><span id="resultScore"></span> / 30</div>
+    <p id="resultPercent" class="result-note"></p>
+    <button id="retryBtn" class="btn primary">同じ設定でもう一度</button>
+    <button id="backSettingsBtn" class="btn secondary" style="margin-left:8px">設定を変更</button>
+    <div id="resultList" class="result-list"></div>
+  </section>
+</div>
+
+<script>
+const SOURCE_QUESTIONS = [{"id": 1, "text": "比較的狭い範囲(構内)で機器を結ぶネットワークはどれか。", "explanation": "LAN=ローカルエリアネットワーク(構内網)。", "options": [{"text": "WWW", "correct": false, "order": 1}, {"text": "WAN", "correct": false, "order": 2}, {"text": "LAN", "correct": true, "order": 3}, {"text": "ISP", "correct": false, "order": 4}]}, {"id": 2, "text": "LAN の正式名称として正しいものはどれか。", "explanation": "LAN=Local Area Network=ローカルエリアネットワーク。", "options": [{"text": "ローカルエリアネットワーク", "correct": true, "order": 1}, {"text": "リンクエリアネットワーク", "correct": false, "order": 2}, {"text": "ロングエリアネットワーク", "correct": false, "order": 3}, {"text": "ラージエリアネットワーク", "correct": false, "order": 4}]}, {"id": 3, "text": "WAN が指すネットワークはどれか。", "explanation": "WAN=広域ネットワーク。", "options": [{"text": "構内ネットワーク", "correct": false, "order": 1}, {"text": "広域ネットワーク", "correct": true, "order": 2}, {"text": "無線ネットワークのみ", "correct": false, "order": 3}, {"text": "家庭内ネットワークのみ", "correct": false, "order": 4}]}, {"id": 4, "text": "「世界中のネットワークがクモの巣のように相互接続された」インターネット上の仕組みはどれか。", "explanation": "WWWは世界中のネットワークが相互接続された仕組み。", "options": [{"text": "WWW(World Wide Web)", "correct": true, "order": 1}, {"text": "POS", "correct": false, "order": 2}, {"text": "LAN", "correct": false, "order": 3}, {"text": "ETC", "correct": false, "order": 4}]}, {"id": 5, "text": "メールアドレス「21B0000@edu.cc.kyukyo-u.ac.jp」で、@ の右側「edu.cc.kyukyo-u.ac.jp」が表すものはどれか。", "explanation": "@より左がユーザ名、右がドメイン名(メールサーバの識別)。", "options": [{"text": "ドメイン名", "correct": true, "order": 1}, {"text": "ファイル名", "correct": false, "order": 2}, {"text": "ユーザ名", "correct": false, "order": 3}, {"text": "パスワード", "correct": false, "order": 4}]}, {"id": 6, "text": "「自由にメッセージを読み書きできる場」として説明されたインターネット上のサービスはどれか。", "explanation": "BBS(電子掲示板)は自由に読み書きできる「場」。", "options": [{"text": "電子掲示板(BBS)", "correct": true, "order": 1}, {"text": "電子メール", "correct": false, "order": 2}, {"text": "オンラインゲーム", "correct": false, "order": 3}, {"text": "メーリングリスト", "correct": false, "order": 4}]}, {"id": 7, "text": "「コミュニティ型のWebサイト」と説明されたサービスはどれか。", "explanation": "SNSはコミュニティ型のWebサイト。", "options": [{"text": "Wiki", "correct": false, "order": 1}, {"text": "Blog", "correct": false, "order": 2}, {"text": "SNS", "correct": true, "order": 3}, {"text": "BBS", "correct": false, "order": 4}]}, {"id": 8, "text": "「多くの人の協力でサイトを作り上げる」サービスはどれか。", "explanation": "Wikiは多くの人の協力でサイトを作り上げる仕組み。", "options": [{"text": "Wiki(ウィキ)", "correct": true, "order": 1}, {"text": "チャット", "correct": false, "order": 2}, {"text": "メーリングリスト", "correct": false, "order": 3}, {"text": "Blog", "correct": false, "order": 4}]}, {"id": 9, "text": "「日記的なWebサイトの総称」と説明されたサービスはどれか。", "explanation": "Blogは日記的なWebサイトの総称。", "options": [{"text": "Wiki", "correct": false, "order": 1}, {"text": "Blog(ブログ)", "correct": true, "order": 2}, {"text": "SNS", "correct": false, "order": 3}, {"text": "BBS", "correct": false, "order": 4}]}, {"id": 10, "text": "インターネット上の電子メールに関する問題として講義で挙げられたものはどれか。", "explanation": "電子メールの問題としてスパム・チェーンメール・ウイルスが挙げられている。", "options": [{"text": "スパムメール、チェーンメール、コンピュータウイルス", "correct": true, "order": 1}, {"text": "フレーム問題", "correct": false, "order": 2}, {"text": "解像度不足", "correct": false, "order": 3}, {"text": "文字化けのみ", "correct": false, "order": 4}]}, {"id": 11, "text": "情報へのアクセスの種別を許可・禁止する仕組み(アクセス権)を指す語はどれか。", "explanation": "アクセス制御=読み取り・書き込み・変更などの許可/禁止を定めること。", "options": [{"text": "標本化", "correct": false, "order": 1}, {"text": "量子化", "correct": false, "order": 2}, {"text": "符号化", "correct": false, "order": 3}, {"text": "アクセス制御", "correct": true, "order": 4}]}, {"id": 12, "text": "「好ましくないパスワードの例」として講義で挙げられていないものはどれか。", "explanation": "短い・単純・推測されやすい・覚えづらいものが好ましくない例。長く規則性のないものは望ましい。", "options": [{"text": "十分に長く、規則性のない文字列", "correct": true, "order": 1}, {"text": "同じ文字の繰り返しなど単純なもの", "correct": false, "order": 2}, {"text": "短いもの", "correct": false, "order": 3}, {"text": "名前・電話番号・誕生日など推測されやすいもの", "correct": false, "order": 4}]}, {"id": 13, "text": "「関連し合うデータを収集・整理し、検索や更新を効率化したファイル」を指す語はどれか。", "explanation": "データベースは関連データを収集・整理し検索・更新を効率化したもの。", "options": [{"text": "データベース", "correct": true, "order": 1}, {"text": "コンパイラ", "correct": false, "order": 2}, {"text": "アルゴリズム", "correct": false, "order": 3}, {"text": "プロトコル", "correct": false, "order": 4}]}, {"id": 14, "text": "情報システムを働きの中心で分類したとき、「銀行の預金引き出しシステムや給与計算」が当てはまる分類はどれか。", "explanation": "情報システムは計算/通信/データ管理/制御を中心に分類。給与計算等は計算中心。", "options": [{"text": "データ管理を中心とするシステム", "correct": false, "order": 1}, {"text": "通信を中心とするシステム", "correct": false, "order": 2}, {"text": "計算を中心とするシステム", "correct": true, "order": 3}, {"text": "制御を中心とするシステム", "correct": false, "order": 4}]}, {"id": 15, "text": "高度道路交通情報システム(ITS)に含まれる、自動料金支払システムの略称はどれか。", "explanation": "ETC=自動料金支払システム、VICS=道路交通情報提供サービス。", "options": [{"text": "GPS", "correct": false, "order": 1}, {"text": "ETC", "correct": true, "order": 2}, {"text": "VICS", "correct": false, "order": 3}, {"text": "POS", "correct": false, "order": 4}]}, {"id": 16, "text": "ネットワークの種類として講義で挙げられたものはどれか。", "explanation": "ネットワークの種類はLAN・WAN・インターネット。", "options": [{"text": "RGB・CMYK・HSV", "correct": false, "order": 1}, {"text": "MP3・AAC・WMA", "correct": false, "order": 2}, {"text": "LAN・WAN・インターネット", "correct": true, "order": 3}, {"text": "JIS・EUC・Unicode", "correct": false, "order": 4}]}, {"id": 17, "text": "「複数の人とリアルタイムに文字情報で交流する」サービスはどれか。", "explanation": "チャットは複数とリアルタイムに文字情報で交流する。", "options": [{"text": "メーリングリスト", "correct": false, "order": 1}, {"text": "チャット", "correct": true, "order": 2}, {"text": "ブログ", "correct": false, "order": 3}, {"text": "電子メール", "correct": false, "order": 4}]}, {"id": 18, "text": "「届いたメールを参加者全員に送付する」サービスはどれか。", "explanation": "メーリングリストは届いたメールを参加者全員に送付する。", "options": [{"text": "メーリングリスト", "correct": true, "order": 1}, {"text": "オンラインゲーム", "correct": false, "order": 2}, {"text": "チャット", "correct": false, "order": 3}, {"text": "SNS", "correct": false, "order": 4}]}, {"id": 19, "text": "「ネットを介して同時に参加できるゲーム」で、実世界と仮想世界の区別の欠如が問題とされたものはどれか。", "explanation": "オンラインゲームでは実世界と仮想世界の区別の欠如が問題として挙げられた。", "options": [{"text": "電子メール", "correct": false, "order": 1}, {"text": "Wiki", "correct": false, "order": 2}, {"text": "電子掲示板", "correct": false, "order": 3}, {"text": "オンラインゲーム", "correct": true, "order": 4}]}, {"id": 20, "text": "電子掲示板やチャットで生じる問題として講義で挙げられたものはどれか。", "explanation": "電子掲示板・チャットでは個人情報漏えいや誹謗中傷が問題。", "options": [{"text": "個人情報漏えい・誹謗中傷", "correct": true, "order": 1}, {"text": "フレーム問題", "correct": false, "order": 2}, {"text": "解像度不足", "correct": false, "order": 3}, {"text": "文字化け", "correct": false, "order": 4}]}, {"id": 21, "text": "「情報を読んだり変更するために情報にふれること」を指す語はどれか。", "explanation": "情報にふれることがアクセス。その許可/禁止がアクセス制御。", "options": [{"text": "量子化", "correct": false, "order": 1}, {"text": "符号化", "correct": false, "order": 2}, {"text": "アクセス", "correct": true, "order": 3}, {"text": "標本化", "correct": false, "order": 4}]}, {"id": 22, "text": "アクセス権の種別として講義で挙げられたものはどれか。", "explanation": "アクセス権は変更・読みとり・書き込みなどの種別で許可/禁止する。", "options": [{"text": "変更・読みとり・書き込み", "correct": true, "order": 1}, {"text": "標本化・量子化・符号化", "correct": false, "order": 2}, {"text": "暗号化・復号・圧縮", "correct": false, "order": 3}, {"text": "加算・減算・乗算", "correct": false, "order": 4}]}, {"id": 23, "text": "パスワード管理時の注意点として講義で挙げられていないものはどれか。", "explanation": "付箋に書いて貼るのは不適切。ID共有しない・他人に教えない・定期変更・席を離れない等が注意点。", "options": [{"text": "パスワードを付箋に書いて画面に貼る", "correct": true, "order": 1}, {"text": "パスワードを他人に教えない", "correct": false, "order": 2}, {"text": "定期的にパスワードを変更する", "correct": false, "order": 3}, {"text": "ネットワーク接続中は席から離れない", "correct": false, "order": 4}]}, {"id": 24, "text": "検索エンジンを用いた情報検索の限界として講義で挙げられたものはどれか。", "explanation": "情報が専門すぎる、検索結果が膨大または不足するといった限界がある。", "options": [{"text": "検索速度が常に遅い", "correct": false, "order": 1}, {"text": "検索は必ず有料である", "correct": false, "order": 2}, {"text": "必ず正解が得られる", "correct": false, "order": 3}, {"text": "情報が専門すぎたり、検索結果が膨大・不足したりする", "correct": true, "order": 4}]}, {"id": 25, "text": "情報システムのうち「航空管制・列車運行管理・録画予約」が当てはまる分類はどれか。", "explanation": "航空管制・列車運行管理・録画予約は制御を中心とするシステム。", "options": [{"text": "計算を中心とするシステム", "correct": false, "order": 1}, {"text": "制御を中心とするシステム", "correct": true, "order": 2}, {"text": "通信を中心とするシステム", "correct": false, "order": 3}, {"text": "データ管理を中心とするシステム", "correct": false, "order": 4}]}, {"id": 26, "text": "情報システムのうち「電話番号案内・座席予約・図書館書籍検索」が当てはまる分類はどれか。", "explanation": "電話番号案内・座席予約・図書館書籍検索はデータ管理を中心とするシステム。", "options": [{"text": "通信を中心とするシステム", "correct": false, "order": 1}, {"text": "データ管理を中心とするシステム", "correct": true, "order": 2}, {"text": "制御を中心とするシステム", "correct": false, "order": 3}, {"text": "計算を中心とするシステム", "correct": false, "order": 4}]}, {"id": 27, "text": "ITS(高度道路交通情報システム)の正式名称に含まれる語はどれか。", "explanation": "ITS=Intelligence Transport System。VICS・ETCを含む。", "options": [{"text": "Intelligence Transport System", "correct": true, "order": 1}, {"text": "International Trade System", "correct": false, "order": 2}, {"text": "Integrated Test System", "correct": false, "order": 3}, {"text": "Internet Transfer Standard", "correct": false, "order": 4}]}, {"id": 28, "text": "商品に付いたバーコード(JANコードなど)を読み取る装置はどれか。", "explanation": "バーコードスキャナは商品コードを読み取る光学読取装置。POSで用いられる。", "options": [{"text": "ルータ", "correct": false, "order": 1}, {"text": "バーコードスキャナ", "correct": true, "order": 2}, {"text": "スピーカ", "correct": false, "order": 3}, {"text": "プロジェクタ", "correct": false, "order": 4}]}, {"id": 29, "text": "情報家電の研究に関連し、講義で挙げられた「あらゆる場所でコンピュータを利用する」概念はどれか。", "explanation": "制御を中心とするシステムの研究としてユビキタス・コンピューティングが挙げられた。", "options": [{"text": "グリッド・コンピューティング", "correct": false, "order": 1}, {"text": "ユビキタス・コンピューティング", "correct": true, "order": 2}, {"text": "タイムシェアリング", "correct": false, "order": 3}, {"text": "バッチ処理", "correct": false, "order": 4}]}, {"id": 30, "text": "キーワード検索での絞り込みに用いる検索方法として講義で挙げられたものはどれか。", "explanation": "キーワード検索の絞り込みにはAND検索・OR検索・NOT検索を用いる。", "options": [{"text": "加法・減法混色", "correct": false, "order": 1}, {"text": "AND検索・OR検索・NOT検索", "correct": true, "order": 2}, {"text": "標本化・量子化・符号化", "correct": false, "order": 3}, {"text": "LAN・WAN検索", "correct": false, "order": 4}]}];
+
+let sessionQuestions = [];
+let answers = {};
+let current = 0;
+let lastSettings = {shuffleQuestions:false, shuffleOptions:false};
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function makeSession(){
+  lastSettings = {
+    shuffleQuestions: document.getElementById('shuffleQuestions').checked,
+    shuffleOptions: document.getElementById('shuffleOptions').checked
+  };
+  sessionQuestions = SOURCE_QUESTIONS.map(q => ({
+    ...q,
+    options: lastSettings.shuffleOptions ? shuffle(q.options) : q.options.map(o=>({...o}))
+  }));
+  if(lastSettings.shuffleQuestions) sessionQuestions = shuffle(sessionQuestions);
+  answers = {};
+  current = 0;
+}
+
+function startQuiz(){
+  makeSession();
+  document.getElementById('settingsCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('quizCard').classList.remove('hidden');
+  buildJump();
+  render();
+}
+
+function render(){
+  const q = sessionQuestions[current];
+  document.getElementById('currentNo').textContent = current+1;
+  document.getElementById('totalNo').textContent = sessionQuestions.length;
+  document.getElementById('progressBar').style.width = ((current+1)/sessionQuestions.length*100)+'%';
+  document.getElementById('qnum').textContent = `問題 ${current+1}`;
+  document.getElementById('question').textContent = q.text;
+
+  const optionArea = document.getElementById('options');
+  optionArea.innerHTML = '';
+  const selected = answers[q.id];
+
+  q.options.forEach((opt, idx) => {
+    const b = document.createElement('button');
+    b.className = 'option';
+    const label = String.fromCharCode(65+idx);
+    b.innerHTML = `<span class="choice-label">${label}</span><span></span>`;
+    b.querySelector('span:last-child').textContent = opt.text;
+    if(selected !== undefined){
+      if(opt.correct) b.classList.add('correct');
+      if(selected === opt.text && !opt.correct) b.classList.add('wrong');
+      if(selected === opt.text) b.classList.add('selected');
+    }
+    b.addEventListener('click', ()=>selectAnswer(q, opt.text));
+    optionArea.appendChild(b);
+  });
+
+  renderFeedback(q);
+  document.getElementById('prevBtn').disabled = current===0;
+  document.getElementById('nextBtn').textContent = current===sessionQuestions.length-1 ? '結果を見る' : '次の問題 →';
+  updateStats();
+  updateJump();
+}
+
+function selectAnswer(q, answerText){
+  answers[q.id] = answerText;
+  render();
+}
+
+function renderFeedback(q){
+  const box = document.getElementById('feedback');
+  const selected = answers[q.id];
+  if(selected === undefined){
+    box.className='feedback';
+    box.innerHTML='';
+    return;
+  }
+  const opt=q.options.find(o=>o.text===selected);
+  const ok=!!opt?.correct;
+  box.className='feedback show '+(ok?'ok':'ng');
+  const correctOpt=q.options.find(o=>o.correct);
+  const head=ok?'正解です。':'不正解です。';
+  box.innerHTML='';
+  const strong=document.createElement('strong');
+  strong.textContent=head;
+  box.appendChild(strong);
+  if(!ok){
+    const c=document.createElement('div');
+    c.textContent='正解：'+(correctOpt ? correctOpt.text : '');
+    box.appendChild(c);
+  }
+  const e=document.createElement('div');
+  e.className='explain';
+  e.textContent='解説：'+q.explanation;
+  box.appendChild(e);
+}
+
+function updateStats(){
+  let answered=0, correct=0;
+  sessionQuestions.forEach(q=>{
+    if(answers[q.id]!==undefined){
+      answered++;
+      const o=q.options.find(x=>x.text===answers[q.id]);
+      if(o?.correct) correct++;
+    }
+  });
+  document.getElementById('answeredCount').textContent=answered;
+  document.getElementById('correctCount').textContent=correct;
+}
+
+function buildJump(){
+  const box=document.getElementById('jump');
+  box.innerHTML='';
+  sessionQuestions.forEach((q,i)=>{
+    const b=document.createElement('button');
+    b.textContent=i+1;
+    b.title=`問題 ${i+1}へ`;
+    b.addEventListener('click',()=>{current=i;render();});
+    box.appendChild(b);
+  });
+}
+
+function updateJump(){
+  const btns=[...document.querySelectorAll('#jump button')];
+  btns.forEach((b,i)=>{
+    b.classList.toggle('current',i===current);
+    b.classList.toggle('answered',answers[sessionQuestions[i].id]!==undefined);
+  });
+}
+
+function showResult(){
+  let correct=0;
+  sessionQuestions.forEach(q=>{
+    const o=q.options.find(x=>x.text===answers[q.id]);
+    if(o?.correct) correct++;
+  });
+  document.getElementById('quizCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.remove('hidden');
+  document.getElementById('resultScore').textContent=correct;
+  const pct=Math.round(correct/sessionQuestions.length*100);
+  document.getElementById('resultPercent').textContent=`正答率 ${pct}%（未回答も不正解として集計）`;
+  const list=document.getElementById('resultList');
+  list.innerHTML='';
+  sessionQuestions.forEach((q,i)=>{
+    const selected=answers[q.id];
+    const selectedOpt=q.options.find(x=>x.text===selected);
+    const ok=!!selectedOpt?.correct;
+    const correctOpt=q.options.find(x=>x.correct);
+    const row=document.createElement('div');
+    row.className='result-row';
+    const status=document.createElement('b');
+    status.className=ok?'ok':'ng';
+    status.textContent=ok?'○':'×';
+    row.appendChild(status);
+    row.appendChild(document.createTextNode(` 問題${i+1}：${q.text}`));
+    const detail=document.createElement('div');
+    detail.className='small';
+    detail.textContent=`あなたの回答：${selected ?? '未回答'} ／ 正解：${correctOpt?.text ?? ''}`;
+    row.appendChild(detail);
+    list.appendChild(row);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function backToSettings(){
+  document.getElementById('quizCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('settingsCard').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.getElementById('startBtn').addEventListener('click',startQuiz);
+document.getElementById('prevBtn').addEventListener('click',()=>{if(current>0){current--;render();window.scrollTo({top:0,behavior:'smooth'});}});
+document.getElementById('nextBtn').addEventListener('click',()=>{if(current<sessionQuestions.length-1){current++;render();window.scrollTo({top:0,behavior:'smooth'});}else{showResult();}});
+document.getElementById('restartBtn').addEventListener('click',backToSettings);
+document.getElementById('backSettingsBtn').addEventListener('click',backToSettings);
+document.getElementById('retryBtn').addEventListener('click',()=>{
+  document.getElementById('shuffleQuestions').checked=lastSettings.shuffleQuestions;
+  document.getElementById('shuffleOptions').checked=lastSettings.shuffleOptions;
+  startQuiz();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+</script>
+</body>
+</html>
