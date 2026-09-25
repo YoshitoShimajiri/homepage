@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>情報文化論 第6回 確認クイズ</title>
+<style>
+  :root {
+    --bg:#f5f7fb; --card:#ffffff; --text:#172033; --muted:#687386;
+    --accent:#315efb; --accent-soft:#eaf0ff; --ok:#147a4a; --ok-bg:#eaf8f1;
+    --ng:#c23838; --ng-bg:#fff0f0; --border:#dce2ec; --shadow:0 10px 30px rgba(28,40,72,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;line-height:1.65}
+  .wrap{max-width:920px;margin:0 auto;padding:24px 16px 64px}
+  header{margin-bottom:18px}
+  h1{font-size:clamp(1.55rem,3vw,2.15rem);margin:.15em 0 .1em}
+  .sub{color:var(--muted);margin:0}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:clamp(18px,4vw,34px);margin-top:18px}
+  .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+  .toggle{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:12px;padding:14px;background:#fbfcff;cursor:pointer}
+  .toggle input{width:20px;height:20px;accent-color:var(--accent)}
+  .btn{appearance:none;border:0;border-radius:11px;padding:12px 18px;font-size:1rem;font-weight:700;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.secondary{background:#eef1f6;color:var(--text)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .progress-meta{font-weight:700}
+  .score{color:var(--muted)}
+  .progress{height:10px;background:#e8ebf1;border-radius:999px;overflow:hidden;margin:14px 0 6px}
+  .progress > div{height:100%;width:0;background:var(--accent);transition:width .2s ease}
+  .qnum{color:var(--accent);font-weight:800;margin:18px 0 4px}
+  .question{font-size:clamp(1.12rem,2.2vw,1.36rem);font-weight:750;margin:0 0 18px}
+  .options{display:grid;gap:11px}
+  .option{width:100%;text-align:left;border:2px solid var(--border);background:#fff;border-radius:13px;padding:14px 16px;font-size:1rem;cursor:pointer;transition:.12s}
+  .option:hover{border-color:#aab8e9;background:#fafbff}
+  .option.selected{border-color:var(--accent);background:var(--accent-soft)}
+  .option.correct{border-color:var(--ok);background:var(--ok-bg)}
+  .option.wrong{border-color:var(--ng);background:var(--ng-bg)}
+  .choice-label{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#eef1f6;font-weight:800;margin-right:10px}
+  .feedback{margin-top:18px;border-radius:13px;padding:15px 16px;display:none}
+  .feedback.show{display:block}
+  .feedback.ok{background:var(--ok-bg);border:1px solid #b9e4cf}
+  .feedback.ng{background:var(--ng-bg);border:1px solid #f0c6c6}
+  .feedback strong{display:block;margin-bottom:3px}
+  .explain{margin-top:8px;color:#374155}
+  .nav{display:flex;justify-content:space-between;gap:10px;margin-top:22px}
+  .nav .right{display:flex;gap:10px}
+  .jump{display:flex;flex-wrap:wrap;gap:7px;margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
+  .jump button{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:650}
+  .jump button.current{outline:2px solid var(--accent);outline-offset:1px}
+  .jump button.answered{background:#eef3ff;border-color:#afc0ff}
+  .result{text-align:center}
+  .result .big{font-size:clamp(2.2rem,8vw,4.2rem);font-weight:900;color:var(--accent);line-height:1.1;margin:12px 0}
+  .result-note{color:var(--muted)}
+  .result-list{margin-top:24px;text-align:left}
+  .result-row{border-top:1px solid var(--border);padding:12px 0}
+  .result-row b.ok{color:var(--ok)} .result-row b.ng{color:var(--ng)}
+  .small{font-size:.9rem;color:var(--muted)}
+  .hidden{display:none!important}
+  @media(max-width:640px){.settings-grid{grid-template-columns:1fr}.nav{align-items:stretch}.nav,.nav .right{flex-direction:column}.btn{width:100%}}
+  @media print{body{background:#fff}.wrap{max-width:none}.card{box-shadow:none}.settings,.nav,.jump{display:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>情報文化論 第6回 確認クイズ</h1>
+    <p class="sub">全24問。選択後すぐに正誤と解説を確認できます。回答は何度でも選び直せます。</p>
+  </header>
+
+  <section id="settingsCard" class="card settings">
+    <h2 style="margin-top:0">開始設定</h2>
+    <p>シャッフルしたい項目だけONにしてください。開始するたびに新しく並び替えます。</p>
+    <div class="settings-grid">
+      <label class="toggle"><input id="shuffleQuestions" type="checkbox"> <span><b>問題順をランダム</b><br><span class="small">問題の出題順を毎回シャッフル</span></span></label>
+      <label class="toggle"><input id="shuffleOptions" type="checkbox"> <span><b>選択肢順をランダム</b><br><span class="small">各問題の4つの選択肢をシャッフル</span></span></label>
+    </div>
+    <button id="startBtn" class="btn primary">クイズを開始</button>
+  </section>
+
+  <section id="quizCard" class="card hidden">
+    <div class="topbar">
+      <div class="progress-meta"><span id="currentNo">1</span> / <span id="totalNo">24</span></div>
+      <div class="score">回答済み <b id="answeredCount">0</b>問　現在の正解 <b id="correctCount">0</b>問</div>
+    </div>
+    <div class="progress"><div id="progressBar"></div></div>
+    <div id="qnum" class="qnum"></div>
+    <div id="question" class="question"></div>
+    <div id="options" class="options"></div>
+    <div id="feedback" class="feedback"></div>
+    <div class="nav">
+      <button id="prevBtn" class="btn secondary">← 前の問題</button>
+      <div class="right">
+        <button id="restartBtn" class="btn secondary">設定を変えて最初から</button>
+        <button id="nextBtn" class="btn primary">次の問題 →</button>
+      </div>
+    </div>
+    <div id="jump" class="jump"></div>
+  </section>
+
+  <section id="resultCard" class="card result hidden">
+    <h2>結果</h2>
+    <div class="big"><span id="resultScore"></span> / 24</div>
+    <p id="resultPercent" class="result-note"></p>
+    <button id="retryBtn" class="btn primary">同じ設定でもう一度</button>
+    <button id="backSettingsBtn" class="btn secondary" style="margin-left:8px">設定を変更</button>
+    <div id="resultList" class="result-list"></div>
+  </section>
+</div>
+
+<script>
+const SOURCE_QUESTIONS = [{"id": 1, "text": "プリンタやスキャナで用いられる「1インチに入る画素数」を表す単位はどれか。", "explanation": "dpi=1インチに入る画素数(dots per inch)。1インチ≒2.5cm。", "options": [{"text": "dpi", "correct": true, "order": 1}, {"text": "Hz", "correct": false, "order": 2}, {"text": "bps", "correct": false, "order": 3}, {"text": "fps", "correct": false, "order": 4}]}, {"id": 2, "text": "画像解像度の単位 ppi の意味として正しいものはどれか。", "explanation": "ppi=pixels per inch。数値が高いほど画質は上がるがメモリサイズも増える。", "options": [{"text": "ピクセル・パー・インチ(1インチに並ぶピクセル数)", "correct": true, "order": 1}, {"text": "ピクセル・パー・センチメートル", "correct": false, "order": 2}, {"text": "1秒あたりのピクセル数", "correct": false, "order": 3}, {"text": "ページ・パー・インチ", "correct": false, "order": 4}]}, {"id": 3, "text": "画像の ppi の数値が2倍になると、メモリサイズはおよそ何倍になるか。", "explanation": "画像は平方なので、ppiが2倍ならメモリサイズは2乗の4倍。", "options": [{"text": "変わらない", "correct": false, "order": 1}, {"text": "4倍", "correct": true, "order": 2}, {"text": "8倍", "correct": false, "order": 3}, {"text": "2倍", "correct": false, "order": 4}]}, {"id": 4, "text": "1600dpi のプリンタで、10cm×10cm の用紙いっぱいに印刷するとき、横1列のドット数はいくつか(1インチ=2.5cm)。", "explanation": "10÷2.5×1600 = 4×1600 = 6,400ドット。", "options": [{"text": "1,600", "correct": false, "order": 1}, {"text": "6,400", "correct": true, "order": 2}, {"text": "4,000", "correct": false, "order": 3}, {"text": "16,000", "correct": false, "order": 4}]}, {"id": 5, "text": "動画のデジタル化で用いられる「1秒間に何枚の静止画(フレーム)を表示するか」を表す語はどれか。", "explanation": "フレームレート(fps)は1秒間のフレーム数。例:30fps。", "options": [{"text": "解像度(dpi)", "correct": false, "order": 1}, {"text": "ビットレート", "correct": false, "order": 2}, {"text": "サンプリング周期", "correct": false, "order": 3}, {"text": "フレームレート(fps)", "correct": true, "order": 4}]}, {"id": 6, "text": "動画が連続して見えるのは、静止画を高速で切り替える際の何という現象によるか。", "explanation": "ぱらぱらめくり(残像現象)により連続した動きに見える。", "options": [{"text": "光の屈折", "correct": false, "order": 1}, {"text": "残像現象", "correct": true, "order": 2}, {"text": "共鳴", "correct": false, "order": 3}, {"text": "ドップラー効果", "correct": false, "order": 4}]}, {"id": 7, "text": "音声のデジタル化の手順の正しい順序はどれか。", "explanation": "音声のデジタル化も 標本化(サンプリング)→量子化→符号化 の順。", "options": [{"text": "量子化 → 符号化 → 標本化", "correct": false, "order": 1}, {"text": "標本化 → 量子化 → 符号化", "correct": true, "order": 2}, {"text": "標本化 → 符号化 → 量子化", "correct": false, "order": 3}, {"text": "符号化 → 標本化 → 量子化", "correct": false, "order": 4}]}, {"id": 8, "text": "音声の圧縮形式として講義で挙げられたものはどれか。", "explanation": "音声の圧縮形式はMP3・AAC・WMAなど。", "options": [{"text": "JIS、EUC、Unicode", "correct": false, "order": 1}, {"text": "JPEG、PNG、GIF", "correct": false, "order": 2}, {"text": "HTML、CSS、XML", "correct": false, "order": 3}, {"text": "MP3、AAC、WMA", "correct": true, "order": 4}]}, {"id": 9, "text": "電子楽器の演奏情報をやり取りする世界共通のインターフェース規格はどれか。", "explanation": "MIDIは音楽演奏情報の世界共通インターフェース規格。", "options": [{"text": "MIDI", "correct": true, "order": 1}, {"text": "MIME", "correct": false, "order": 2}, {"text": "MP3", "correct": false, "order": 3}, {"text": "MPEG", "correct": false, "order": 4}]}, {"id": 10, "text": "デジタル化の利点として講義で挙げられていないものはどれか。", "explanation": "違法複製のしやすさは「利点」ではなく「問題点」。", "options": [{"text": "伝送や複製による品質劣化が少ない", "correct": false, "order": 1}, {"text": "大量のデータをメディアに記録できる", "correct": false, "order": 2}, {"text": "欲しい情報を見つけやすい", "correct": false, "order": 3}, {"text": "違法な複製が行われやすい", "correct": true, "order": 4}]}, {"id": 11, "text": "デジタル化の問題点として講義で挙げられたものはどれか。", "explanation": "問題点:微妙な情報が失われる、盗難・紛失被害が大きい、違法複製が行われやすい等。", "options": [{"text": "量を明確に表現できる", "correct": false, "order": 1}, {"text": "情報を見つけやすい", "correct": false, "order": 2}, {"text": "違法な複製が行われやすい", "correct": true, "order": 3}, {"text": "品質の劣化が少ない", "correct": false, "order": 4}]}, {"id": 12, "text": "1975年に世界初のデジタルカメラを発明した企業はどれか。", "explanation": "1975年、米国コダックが世界初のデジタルカメラを発明(100×100=1万画素)。", "options": [{"text": "キヤノン", "correct": false, "order": 1}, {"text": "ソニー", "correct": false, "order": 2}, {"text": "富士写真フイルム", "correct": false, "order": 3}, {"text": "米国のコダック", "correct": true, "order": 4}]}, {"id": 13, "text": "講義で用いた換算で、1インチは約何cmとするか。", "explanation": "1インチ≒2.5cm(正確には約2.54cm)として計算する。", "options": [{"text": "約10cm", "correct": false, "order": 1}, {"text": "約1.0cm", "correct": false, "order": 2}, {"text": "約5.0cm", "correct": false, "order": 3}, {"text": "約2.5cm", "correct": true, "order": 4}]}, {"id": 14, "text": "解像度720×480ドット、フルカラー(1ドット=3バイト)の静止画1フレームのデータ量はいくらか。", "explanation": "720×480×3 = 1,036,800B(≒1012.5KB)。", "options": [{"text": "480 B", "correct": false, "order": 1}, {"text": "345,600 B", "correct": false, "order": 2}, {"text": "720 B", "correct": false, "order": 3}, {"text": "1,036,800 B", "correct": true, "order": 4}]}, {"id": 15, "text": "解像度720×480ドット・フルカラー(1ドット=3バイト)の静止画を30fps・3分間表示したときの情報量に最も近いものはどれか。", "explanation": "1012.5KB×30(fps)×180(秒) ≒ 5.21GB。", "options": [{"text": "約54 GB", "correct": false, "order": 1}, {"text": "約100 MB", "correct": false, "order": 2}, {"text": "約1 GB", "correct": false, "order": 3}, {"text": "約5.21 GB", "correct": true, "order": 4}]}, {"id": 16, "text": "動画作成でコマ(フレーム)に関して講義で挙げられた語はどれか。", "explanation": "動画のデジタル化ではフレーム、キーフレーム、インビトゥイーンが登場する。", "options": [{"text": "標本化と量子化", "correct": false, "order": 1}, {"text": "キーフレームとインビトゥイーン", "correct": true, "order": 2}, {"text": "LANとWAN", "correct": false, "order": 3}, {"text": "dpiとppi", "correct": false, "order": 4}]}, {"id": 17, "text": "音声のデジタル化のSTEP1「標本化」で、一定間隔で値を取り出す間隔を何というか。", "explanation": "標本化ではサンプリング周期ごとに標本値を取り出す。", "options": [{"text": "フレームレート", "correct": false, "order": 1}, {"text": "サンプリング周期", "correct": true, "order": 2}, {"text": "ビット深度", "correct": false, "order": 3}, {"text": "解像度", "correct": false, "order": 4}]}, {"id": 18, "text": "デジタル化の利点として講義で挙げられたものはどれか。", "explanation": "利点:量を明確に表現、大量記録、情報を見つけやすい、品質劣化が少ない。他は問題点。", "options": [{"text": "盗難・紛失による被害が大きい", "correct": false, "order": 1}, {"text": "違法な複製が行われやすい", "correct": false, "order": 2}, {"text": "伝送や複製による品質劣化が少ない", "correct": true, "order": 3}, {"text": "微妙な情報が失われる", "correct": false, "order": 4}]}, {"id": 19, "text": "情報を公開する際の留意事項として講義で挙げられたものはどれか。", "explanation": "デジタル情報の公開時は肖像権・著作権・引用に留意する。", "options": [{"text": "RGB・CMYK", "correct": false, "order": 1}, {"text": "LAN・WAN・WWW", "correct": false, "order": 2}, {"text": "解像度・dpi・ppi", "correct": false, "order": 3}, {"text": "肖像権・著作権・引用", "correct": true, "order": 4}]}, {"id": 20, "text": "1988年に世界初の一般消費者向けデジタルカメラを発売した企業はどれか。", "explanation": "1988年、富士写真フイルムが世界初の一般消費者向けデジタルカメラを発売。", "options": [{"text": "ソニー", "correct": false, "order": 1}, {"text": "キヤノン", "correct": false, "order": 2}, {"text": "コダック", "correct": false, "order": 3}, {"text": "富士写真フイルム", "correct": true, "order": 4}]}, {"id": 21, "text": "1999年9月に世界初のカメラ付き携帯電話(PHS)を発売した会社はどれか。", "explanation": "1999年9月にDDIポケット(現ウィルコム)が世界初のカメラ付き携帯電話を発売した。", "options": [{"text": "NTTドコモ", "correct": false, "order": 1}, {"text": "ソフトバンク", "correct": false, "order": 2}, {"text": "DDIポケット(現ウィルコム)", "correct": true, "order": 3}, {"text": "au", "correct": false, "order": 4}]}, {"id": 22, "text": "書店で書籍のページを撮影して買わずに済ます行為が問題視され、何と呼ばれたか。", "explanation": "カメラ付携帯の普及に伴い、書籍撮影による「デジタル万引き」が問題となった。", "options": [{"text": "なりすまし", "correct": false, "order": 1}, {"text": "フィッシング", "correct": false, "order": 2}, {"text": "デジタル万引き", "correct": true, "order": 3}, {"text": "クラッキング", "correct": false, "order": 4}]}, {"id": 23, "text": "日本のカメラ付き携帯電話でシャッター音が必ず鳴るようにされている主な理由はどれか。", "explanation": "スカート内の盗撮防止等のため、マナーモード時も必ずシャッター音が鳴る仕様。", "options": [{"text": "通信速度の向上", "correct": false, "order": 1}, {"text": "盗撮の防止", "correct": true, "order": 2}, {"text": "通話品質の向上", "correct": false, "order": 3}, {"text": "電池の節約", "correct": false, "order": 4}]}, {"id": 24, "text": "1600dpiのプリンタで10cm×10cmに印刷(横6400×縦6400ドット)したときの総ドット数はいくつか。", "explanation": "6400×6400 = 40,960,000ドット。", "options": [{"text": "40,960,000", "correct": true, "order": 1}, {"text": "12,800", "correct": false, "order": 2}, {"text": "6,400", "correct": false, "order": 3}, {"text": "4,096,000", "correct": false, "order": 4}]}];
+
+let sessionQuestions = [];
+let answers = {};
+let current = 0;
+let lastSettings = {shuffleQuestions:false, shuffleOptions:false};
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function makeSession(){
+  lastSettings = {
+    shuffleQuestions: document.getElementById('shuffleQuestions').checked,
+    shuffleOptions: document.getElementById('shuffleOptions').checked
+  };
+  sessionQuestions = SOURCE_QUESTIONS.map(q => ({
+    ...q,
+    options: lastSettings.shuffleOptions ? shuffle(q.options) : q.options.map(o=>({...o}))
+  }));
+  if(lastSettings.shuffleQuestions) sessionQuestions = shuffle(sessionQuestions);
+  answers = {};
+  current = 0;
+}
+
+function startQuiz(){
+  makeSession();
+  document.getElementById('settingsCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('quizCard').classList.remove('hidden');
+  buildJump();
+  render();
+}
+
+function render(){
+  const q = sessionQuestions[current];
+  document.getElementById('currentNo').textContent = current+1;
+  document.getElementById('totalNo').textContent = sessionQuestions.length;
+  document.getElementById('progressBar').style.width = ((current+1)/sessionQuestions.length*100)+'%';
+  document.getElementById('qnum').textContent = `問題 ${current+1}`;
+  document.getElementById('question').textContent = q.text;
+
+  const optionArea = document.getElementById('options');
+  optionArea.innerHTML = '';
+  const selected = answers[q.id];
+
+  q.options.forEach((opt, idx) => {
+    const b = document.createElement('button');
+    b.className = 'option';
+    const label = String.fromCharCode(65+idx);
+    b.innerHTML = `<span class="choice-label">${label}</span><span></span>`;
+    b.querySelector('span:last-child').textContent = opt.text;
+    if(selected !== undefined){
+      if(opt.correct) b.classList.add('correct');
+      if(selected === opt.text && !opt.correct) b.classList.add('wrong');
+      if(selected === opt.text) b.classList.add('selected');
+    }
+    b.addEventListener('click', ()=>selectAnswer(q, opt.text));
+    optionArea.appendChild(b);
+  });
+
+  renderFeedback(q);
+  document.getElementById('prevBtn').disabled = current===0;
+  document.getElementById('nextBtn').textContent = current===sessionQuestions.length-1 ? '結果を見る' : '次の問題 →';
+  updateStats();
+  updateJump();
+}
+
+function selectAnswer(q, answerText){
+  answers[q.id] = answerText;
+  render();
+}
+
+function renderFeedback(q){
+  const box = document.getElementById('feedback');
+  const selected = answers[q.id];
+  if(selected === undefined){
+    box.className='feedback';
+    box.innerHTML='';
+    return;
+  }
+  const opt=q.options.find(o=>o.text===selected);
+  const ok=!!opt?.correct;
+  box.className='feedback show '+(ok?'ok':'ng');
+  const correctOpt=q.options.find(o=>o.correct);
+  const head=ok?'正解です。':'不正解です。';
+  box.innerHTML='';
+  const strong=document.createElement('strong');
+  strong.textContent=head;
+  box.appendChild(strong);
+  if(!ok){
+    const c=document.createElement('div');
+    c.textContent='正解：'+(correctOpt ? correctOpt.text : '');
+    box.appendChild(c);
+  }
+  const e=document.createElement('div');
+  e.className='explain';
+  e.textContent='解説：'+q.explanation;
+  box.appendChild(e);
+}
+
+function updateStats(){
+  let answered=0, correct=0;
+  sessionQuestions.forEach(q=>{
+    if(answers[q.id]!==undefined){
+      answered++;
+      const o=q.options.find(x=>x.text===answers[q.id]);
+      if(o?.correct) correct++;
+    }
+  });
+  document.getElementById('answeredCount').textContent=answered;
+  document.getElementById('correctCount').textContent=correct;
+}
+
+function buildJump(){
+  const box=document.getElementById('jump');
+  box.innerHTML='';
+  sessionQuestions.forEach((q,i)=>{
+    const b=document.createElement('button');
+    b.textContent=i+1;
+    b.title=`問題 ${i+1}へ`;
+    b.addEventListener('click',()=>{current=i;render();});
+    box.appendChild(b);
+  });
+}
+
+function updateJump(){
+  const btns=[...document.querySelectorAll('#jump button')];
+  btns.forEach((b,i)=>{
+    b.classList.toggle('current',i===current);
+    b.classList.toggle('answered',answers[sessionQuestions[i].id]!==undefined);
+  });
+}
+
+function showResult(){
+  let correct=0;
+  sessionQuestions.forEach(q=>{
+    const o=q.options.find(x=>x.text===answers[q.id]);
+    if(o?.correct) correct++;
+  });
+  document.getElementById('quizCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.remove('hidden');
+  document.getElementById('resultScore').textContent=correct;
+  const pct=Math.round(correct/sessionQuestions.length*100);
+  document.getElementById('resultPercent').textContent=`正答率 ${pct}%（未回答も不正解として集計）`;
+  const list=document.getElementById('resultList');
+  list.innerHTML='';
+  sessionQuestions.forEach((q,i)=>{
+    const selected=answers[q.id];
+    const selectedOpt=q.options.find(x=>x.text===selected);
+    const ok=!!selectedOpt?.correct;
+    const correctOpt=q.options.find(x=>x.correct);
+    const row=document.createElement('div');
+    row.className='result-row';
+    const status=document.createElement('b');
+    status.className=ok?'ok':'ng';
+    status.textContent=ok?'○':'×';
+    row.appendChild(status);
+    row.appendChild(document.createTextNode(` 問題${i+1}：${q.text}`));
+    const detail=document.createElement('div');
+    detail.className='small';
+    detail.textContent=`あなたの回答：${selected ?? '未回答'} ／ 正解：${correctOpt?.text ?? ''}`;
+    row.appendChild(detail);
+    list.appendChild(row);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function backToSettings(){
+  document.getElementById('quizCard').classList.add('hidden');
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('settingsCard').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.getElementById('startBtn').addEventListener('click',startQuiz);
+document.getElementById('prevBtn').addEventListener('click',()=>{if(current>0){current--;render();window.scrollTo({top:0,behavior:'smooth'});}});
+document.getElementById('nextBtn').addEventListener('click',()=>{if(current<sessionQuestions.length-1){current++;render();window.scrollTo({top:0,behavior:'smooth'});}else{showResult();}});
+document.getElementById('restartBtn').addEventListener('click',backToSettings);
+document.getElementById('backSettingsBtn').addEventListener('click',backToSettings);
+document.getElementById('retryBtn').addEventListener('click',()=>{
+  document.getElementById('shuffleQuestions').checked=lastSettings.shuffleQuestions;
+  document.getElementById('shuffleOptions').checked=lastSettings.shuffleOptions;
+  startQuiz();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+</script>
+</body>
+</html>
